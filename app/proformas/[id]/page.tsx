@@ -139,8 +139,14 @@ export default function ProformaDetailPage() {
       setHeaderUrl(`${h.publicUrl}?t=${t}`);
       setFooterUrl(`${f.publicUrl}?t=${t}`);
 
-      setP(pro as Proforma);
-      setItems((it ?? []) as Item[]);
+      const normalizedProforma: Proforma = {
+  ...pro,
+  clients: Array.isArray(pro.clients) ? pro.clients[0] ?? null : pro.clients,
+  profiles: Array.isArray(pro.profiles) ? pro.profiles[0] ?? null : pro.profiles,
+};
+
+setP(normalizedProforma);
+setItems((it ?? []) as Item[]);
     })();
   }, [id, router]);
 
