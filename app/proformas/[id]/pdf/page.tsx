@@ -100,12 +100,22 @@ async function getData(id: number) {
   const { data: h } = supabase.storage.from(BUCKET).getPublicUrl("header.png");
   const { data: f } = supabase.storage.from(BUCKET).getPublicUrl("footer.png");
 
-  return {
-    pro: pro as Proforma,
-    items: (items ?? []) as Item[],
-    headerUrl: `${h.publicUrl}?t=${Date.now()}`,
-    footerUrl: `${f.publicUrl}?t=${Date.now()}`,
-  };
+  const normalizedProforma: Proforma = {
+  ...(pro as any),
+  clients: Array.isArray((pro as any).clients)
+    ? (pro as any).clients[0] ?? null
+    : (pro as any).clients ?? null,
+  profiles: Array.isArray((pro as any).profiles)
+    ? (pro as any).profiles[0] ?? null
+    : (pro as any).profiles ?? null,
+};
+
+return {
+  pro: normalizedProforma,
+  items: (items ?? []) as Item[],
+  headerUrl: `${h.publicUrl}?t=${Date.now()}`,
+  footerUrl: `${f.publicUrl}?t=${Date.now()}`,
+};
 }
 
 export default async function ProformaPdfPage({
