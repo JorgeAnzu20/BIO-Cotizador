@@ -153,8 +153,13 @@ export default function ProformasPage() {
       return;
     }
 
-    setRows((r ?? []) as Row[]);
-    setLoading(false);
+    const normalizedRows: Row[] = (r ?? []).map((row: any) => ({
+  ...row,
+  clients: Array.isArray(row.clients) ? row.clients[0] ?? null : row.clients,
+}));
+
+setRows(normalizedRows);
+setLoading(false);
   }
 
   useEffect(() => {
