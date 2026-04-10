@@ -542,16 +542,6 @@ export default function EditProformaPage() {
                   ← Volver a proformas
                 </motion.button>
               </Link>
-
-              <motion.button
-                onClick={save}
-                style={primaryButtonStyle}
-                disabled={saving}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
-                {saving ? "Guardando..." : "Guardar cambios"}
-              </motion.button>
             </div>
           </motion.div>
 
@@ -863,6 +853,31 @@ export default function EditProformaPage() {
                     style={textareaStyle}
                   />
                 </label>
+              </div>
+            </motion.div>
+
+            <motion.div variants={itemVariants} style={panelStyle}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  gap: 12,
+                  flexDirection: isMobile ? "column" : "row",
+                }}
+              >
+                <motion.button
+                  type="button"
+                  onClick={save}
+                  style={{
+                    ...primaryInlineButtonStyle,
+                    width: isMobile ? "100%" : undefined,
+                  }}
+                  disabled={saving}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  {saving ? "Guardando..." : "Guardar cambios"}
+                </motion.button>
               </div>
             </motion.div>
           </div>
