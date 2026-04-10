@@ -85,6 +85,14 @@ export default function ProformaDetailPage() {
 
   const [headerUrl, setHeaderUrl] = useState("");
   const [footerUrl, setFooterUrl] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -135,18 +143,18 @@ export default function ProformaDetailPage() {
       const { data: h } = supabase.storage.from(BUCKET).getPublicUrl("header.png");
       const { data: f } = supabase.storage.from(BUCKET).getPublicUrl("footer.png");
 
-      const t = Date.now();
-      setHeaderUrl(`${h.publicUrl}?t=${t}`);
-      setFooterUrl(`${f.publicUrl}?t=${t}`);
+      const cacheKey = pro?.created_at ? new Date(pro.created_at).getTime() : Date.now();
+      setHeaderUrl(`${h.publicUrl}?v=${cacheKey}`);
+      setFooterUrl(`${f.publicUrl}?v=${cacheKey}`);
 
       const normalizedProforma: Proforma = {
-  ...pro,
-  clients: Array.isArray(pro.clients) ? pro.clients[0] ?? null : pro.clients,
-  profiles: Array.isArray(pro.profiles) ? pro.profiles[0] ?? null : pro.profiles,
-};
+        ...pro,
+        clients: Array.isArray(pro.clients) ? pro.clients[0] ?? null : pro.clients,
+        profiles: Array.isArray(pro.profiles) ? pro.profiles[0] ?? null : pro.profiles,
+      };
 
-setP(normalizedProforma);
-setItems((it ?? []) as Item[]);
+      setP(normalizedProforma);
+      setItems((it ?? []) as Item[]);
     })();
   }, [id, router]);
 
@@ -183,10 +191,11 @@ setItems((it ?? []) as Item[]);
         background: COLORS.grayBg,
         color: COLORS.text,
         fontFamily: "Inter, Arial, sans-serif",
-        padding: 16,
+        padding: isMobile ? 12 : 16,
+        overflowX: "hidden",
       }}
     >
-      <div style={{ maxWidth: "23cm", margin: "0 auto" }}>
+      <div style={{ maxWidth: isMobile ? "100%" : "23cm", margin: "0 auto" }}>
         <div
           style={{
             background: COLORS.bone,
@@ -228,8 +237,8 @@ setItems((it ?? []) as Item[]);
 
         <div
           style={{
-            width: "21cm",
-            minHeight: "29.7cm",
+            width: isMobile ? "100%" : "21cm",
+            minHeight: isMobile ? undefined : "29.7cm",
             background: "white",
             margin: "0 auto",
             color: "black",
@@ -237,7 +246,7 @@ setItems((it ?? []) as Item[]);
             position: "relative",
             boxSizing: "border-box",
             boxShadow: "0 12px 30px rgba(0,0,0,0.10)",
-            overflow: "hidden",
+            overflow: isMobile ? "auto" : "hidden",
           }}
         >
           <div
@@ -323,7 +332,7 @@ setItems((it ?? []) as Item[]);
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1.05fr 0.95fr",
+                  gridTemplateColumns: isMobile ? "1fr" : "1.05fr 0.95fr",
                   gap: "0.2cm",
                   alignItems: "start",
                 }}
@@ -657,10 +666,11 @@ setItems((it ?? []) as Item[]);
 
           <div
             style={{
-              position: "absolute",
-              left: "0.28cm",
-              right: "0.28cm",
-              bottom: "0.18cm",
+              position: isMobile ? "relative" : "absolute",
+              left: isMobile ? undefined : "0.28cm",
+              right: isMobile ? undefined : "0.28cm",
+              bottom: isMobile ? undefined : "0.18cm",
+              margin: isMobile ? "0.1cm 0.28cm 0.18cm 0.28cm" : undefined,
             }}
           >
             <div
