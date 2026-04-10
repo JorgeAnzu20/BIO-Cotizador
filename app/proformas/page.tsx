@@ -114,57 +114,56 @@ export default function ProformasPage() {
     setMsg("");
     setLoading(true);
 
-    const { data: auth } = await supabase.auth.getUser();
-    const user = auth.user;
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth.user;
 
-    if (!user) {
-      router.push("/login");
-      return;
-    }
+      if (!user) {
+        router.push("/login");
+        return;
+      }
 
-    const { data: profile, error: profileErr } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
+      const { data: profile, error: profileErr } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
 
-    if (profileErr) {
-      setMsg(profileErr.message);
+      if (profileErr) throw profileErr;
+
+      const role = profile?.role ?? "";
+
+      let query = supabase
+        .from("proformas")
+        .select(
+          "id, number, total, created_at, venta_confirmada, seller_id, clients(full_name)"
+        )
+        .order("id", { ascending: false });
+
+      if (role !== "admin") {
+        query = query.eq("seller_id", user.id);
+      }
+
+      const { data: r, error } = await query;
+
+      if (error) throw error;
+
+      const normalizedRows: Row[] = (r ?? []).map((row: any) => ({
+        ...row,
+        clients: Array.isArray(row.clients) ? row.clients[0] ?? null : row.clients,
+      }));
+
+      setRows(normalizedRows);
+    } catch (error: any) {
+      setMsg(error?.message ?? "No se pudo cargar las proformas.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const role = profile?.role ?? "";
-
-    let query = supabase
-      .from("proformas")
-      .select("id, number, total, created_at, venta_confirmada, seller_id, clients(full_name)")
-      .order("id", { ascending: false });
-
-    if (role !== "admin") {
-      query = query.eq("seller_id", user.id);
-    }
-
-    const { data: r, error } = await query;
-
-    if (error) {
-      setMsg(error.message);
-      setLoading(false);
-      return;
-    }
-
-    const normalizedRows: Row[] = (r ?? []).map((row: any) => ({
-  ...row,
-  clients: Array.isArray(row.clients) ? row.clients[0] ?? null : row.clients,
-}));
-
-setRows(normalizedRows);
-setLoading(false);
   }
 
   useEffect(() => {
     load();
-  }, [router]);
+  }, []);
 
   const filtered = useMemo(() => {
     let data = [...rows];
@@ -230,6 +229,8 @@ setLoading(false);
   }, [filtered]);
 
   async function deleteProforma(id: number) {
+    if (deletingId !== null) return;
+
     const ok = window.confirm(
       "¿Seguro que deseas eliminar esta proforma?\n\nSe eliminarán también sus ítems."
     );
@@ -238,68 +239,62 @@ setLoading(false);
     setMsg("");
     setDeletingId(id);
 
-    const { error: errItems } = await supabase
-      .from("proforma_items")
-      .delete()
-      .eq("proforma_id", id);
+    try {
+      const { error: errItems } = await supabase
+        .from("proforma_items")
+        .delete()
+        .eq("proforma_id", id);
 
-    if (errItems) {
-      setMsg("Error eliminando ítems: " + errItems.message);
+      if (errItems) throw new Error("Error eliminando ítems: " + errItems.message);
+
+      const { error: errPro } = await supabase
+        .from("proformas")
+        .delete()
+        .eq("id", id);
+
+      if (errPro) throw new Error("Error eliminando proforma: " + errPro.message);
+
+      await load();
+      setMsg("✅ Proforma eliminada");
+    } catch (error: any) {
+      setMsg(error?.message ?? "No se pudo eliminar la proforma.");
+    } finally {
       setDeletingId(null);
-      return;
     }
-
-    const { error: errPro } = await supabase
-      .from("proformas")
-      .delete()
-      .eq("id", id);
-
-    if (errPro) {
-      setMsg("Error eliminando proforma: " + errPro.message);
-      setDeletingId(null);
-      return;
-    }
-
-    setRows((prev) => prev.filter((x) => x.id !== id));
-    setDeletingId(null);
-    setMsg("✅ Proforma eliminada");
   }
 
   async function confirmSale(id: number, currentStatus: boolean) {
+    if (confirmingId !== null) return;
+
     setMsg("");
     setConfirmingId(id);
 
-    const nextStatus = !currentStatus;
+    try {
+      const nextStatus = !currentStatus;
 
-    const { data, error } = await supabase
-      .from("proformas")
-      .update({ venta_confirmada: nextStatus })
-      .eq("id", id)
-      .select("id, venta_confirmada")
-      .single();
+      const { data, error } = await supabase
+        .from("proformas")
+        .update({ venta_confirmada: nextStatus })
+        .eq("id", id)
+        .select("id, venta_confirmada")
+        .single();
 
-    if (error) {
-      setMsg("Error actualizando venta: " + error.message);
+      if (error) throw new Error("Error actualizando venta: " + error.message);
+      if (!data) throw new Error("No se pudo confirmar la venta.");
+
+      setRows((prev) =>
+        prev.map((x) =>
+          x.id === id ? { ...x, venta_confirmada: data.venta_confirmada } : x
+        )
+      );
+
+      setMsg(data.venta_confirmada ? "✅ Venta confirmada" : "✅ Confirmación removida");
+      await load();
+    } catch (error: any) {
+      setMsg(error?.message ?? "No se pudo actualizar la venta.");
+    } finally {
       setConfirmingId(null);
-      return;
     }
-
-    if (!data) {
-      setMsg("No se pudo confirmar la venta.");
-      setConfirmingId(null);
-      return;
-    }
-
-    setRows((prev) =>
-      prev.map((x) =>
-        x.id === id ? { ...x, venta_confirmada: data.venta_confirmada } : x
-      )
-    );
-
-    setConfirmingId(null);
-    setMsg(data.venta_confirmada ? "✅ Venta confirmada" : "✅ Confirmación removida");
-
-    await load();
   }
 
   function clearFilters() {
@@ -720,7 +715,7 @@ setLoading(false);
                           whileHover={{ scale: 1.03 }}
                           whileTap={{ scale: 0.97 }}
                           onClick={() => confirmSale(p.id, p.venta_confirmada)}
-                          disabled={confirmingId === p.id}
+                          disabled={confirmingId === p.id || deletingId !== null}
                           style={p.venta_confirmada ? successButtonStyle : confirmButtonStyle}
                         >
                           {confirmingId === p.id
@@ -735,7 +730,7 @@ setLoading(false);
                           whileHover={{ scale: 1.03 }}
                           whileTap={{ scale: 0.97 }}
                           onClick={() => deleteProforma(p.id)}
-                          disabled={deletingId === p.id}
+                          disabled={deletingId === p.id || confirmingId !== null}
                           style={dangerButtonStyle}
                         >
                           {deletingId === p.id ? "Eliminando..." : "Eliminar"}
