@@ -318,7 +318,7 @@ export default function EditClientPage() {
                 </label>
 
                 <label style={labelStyle}>
-                  Reporte
+                  Ciudad
                   <textarea
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
