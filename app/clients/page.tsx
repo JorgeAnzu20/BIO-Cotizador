@@ -69,6 +69,14 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   async function load() {
     setMsg("");
@@ -156,12 +164,12 @@ export default function ClientsPage() {
         variants={pageVariants}
         initial="hidden"
         animate="visible"
-        style={{ maxWidth: 1300, margin: "0 auto", padding: 24 }}
+        style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? 14 : 24 }}
       >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "290px 1fr",
+            gridTemplateColumns: isMobile ? "1fr" : "290px 1fr",
             gap: 20,
           }}
         >
@@ -224,7 +232,7 @@ export default function ClientsPage() {
             </div>
           </motion.div>
 
-          <div style={{ display: "grid", gap: 20 }}>
+          <div style={{ display: "grid", gap: 20, minWidth: 0 }}>
             <motion.div variants={itemVariants} style={bonePanel}>
               <div style={{ fontSize: 14, opacity: 0.85, color: COLORS.text }}>Módulo</div>
               <div
@@ -268,7 +276,9 @@ export default function ClientsPage() {
               variants={itemVariants}
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gridTemplateColumns: isMobile
+                  ? "1fr"
+                  : "repeat(2, minmax(0, 1fr))",
                 gap: 16,
               }}
             >
@@ -294,13 +304,14 @@ export default function ClientsPage() {
                 placeholder="Buscar por nombre, cédula/RUC, teléfono o correo..."
                 style={{
                   width: "100%",
-                  maxWidth: 420,
+                  maxWidth: isMobile ? "100%" : 420,
                   padding: 12,
                   borderRadius: 14,
                   border: `1px solid ${COLORS.grayBorder}`,
                   background: COLORS.white,
                   color: COLORS.text,
                   outline: "none",
+                  boxSizing: "border-box",
                 }}
               />
             </motion.div>
@@ -346,32 +357,34 @@ export default function ClientsPage() {
                             justifyContent: "space-between",
                             gap: 12,
                             flexWrap: "wrap",
+                            flexDirection: isMobile ? "column" : "row",
                           }}
                         >
-                          <div style={{ minWidth: 260 }}>
+                          <div style={{ minWidth: isMobile ? "100%" : 260 }}>
                             <div
                               style={{
                                 fontWeight: 900,
                                 fontSize: 20,
                                 color: COLORS.text,
+                                wordBreak: "break-word",
                               }}
                             >
                               {c.full_name}
                             </div>
 
-                            <div style={{ marginTop: 8, color: COLORS.text }}>
+                            <div style={{ marginTop: 8, color: COLORS.text, wordBreak: "break-word" }}>
                               <b>Cédula/RUC:</b> {c.document ?? "-"}
                             </div>
 
-                            <div style={{ marginTop: 4, color: COLORS.text }}>
+                            <div style={{ marginTop: 4, color: COLORS.text, wordBreak: "break-word" }}>
                               <b>Teléfono:</b> {c.phone ?? "-"}
                             </div>
 
-                            <div style={{ marginTop: 4, color: COLORS.text }}>
+                            <div style={{ marginTop: 4, color: COLORS.text, wordBreak: "break-word" }}>
                               <b>Correo:</b> {c.email ?? "-"}
                             </div>
 
-                            <div style={{ marginTop: 4, color: COLORS.text }}>
+                            <div style={{ marginTop: 4, color: COLORS.text, wordBreak: "break-word" }}>
                               <b>Reporte:</b> {c.address ?? "-"}
                             </div>
                           </div>
@@ -442,6 +455,7 @@ function MetricCard({ title, value }: { title: string; value: string }) {
           fontWeight: 900,
           lineHeight: 1,
           color: COLORS.text,
+          wordBreak: "break-word",
         }}
       >
         {value}
