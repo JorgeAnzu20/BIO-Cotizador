@@ -269,31 +269,28 @@ export default async function ProformaPdfPage({
           margin: 0.1cm 0.28cm 0 0.28cm;
         }
 
-        .footer-wrap {
-          position: absolute;
-          left: 0.28cm;
-          right: 0.28cm;
-          bottom: 0.18cm;
-        }
+          .footer-wrap {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+  }
 
-        .footer {
-          width: 100%;
-          height: 3.2cm;
-          overflow: hidden;
-          background: #fff;
-          display: flex;
-          align-items: flex-end;
-          justify-content: center;
-        }
+  .footer {
+    width: 21cm;
+    height: 4cm;
+    overflow: hidden;
+    background: #fff;
+    display: block;
+  }
 
-        .footer img {
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
-          object-position: center bottom;
-          display: block;
-        }
-      `}</style>
+  .footer img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+`}</style>
 
       <div className="page">
         <div className="header">
