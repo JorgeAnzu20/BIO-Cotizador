@@ -6,6 +6,31 @@ import { createClient } from "@supabase/supabase-js";
 
 const PRODUCT_PDF_BUCKET = "product-pdfs";
 
+function getBaseUrl(req: Request) {
+  const envUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "";
+
+  const requestOrigin = new URL(req.url).origin;
+
+  // Si la env está vacía, usa el origin real del request
+  if (!envUrl) return requestOrigin;
+
+  // Si la env quedó en localhost pero estás en producción, ignórala
+  const isLocalEnv =
+    envUrl.includes("localhost") || envUrl.includes("127.0.0.1");
+
+  const isRenderRequest =
+    requestOrigin.includes("onrender.com") || requestOrigin.startsWith("https://");
+
+  if (isLocalEnv && isRenderRequest) {
+    return requestOrigin;
+  }
+
+  return envUrl.replace(/\/+$/, "");
+}
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -20,15 +45,28 @@ export async function GET(
       return NextResponse.json({ error: "ID inválido" }, { status: 400 });
     }
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      new URL(req.url).origin;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } }
-    );
+    if (!supabaseUrl) {
+      return NextResponse.json(
+        { error: "Falta NEXT_PUBLIC_SUPABASE_URL" },
+        { status: 500 }
+      );
+    }
+
+    if (!serviceRoleKey) {
+      return NextResponse.json(
+        { error: "Falta SUPABASE_SERVICE_ROLE_KEY" },
+        { status: 500 }
+      );
+    }
+
+    const baseUrl = getBaseUrl(req);
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false },
+    });
 
     // 1) Buscar proforma
     const { data: proforma, error: proErr } = await supabase
@@ -51,10 +89,7 @@ export async function GET(
       .eq("proforma_id", id);
 
     if (itemsErr) {
-      return NextResponse.json(
-        { error: itemsErr.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: itemsErr.message }, { status: 500 });
     }
 
     // 3) Sacar product_id únicos válidos
@@ -76,10 +111,7 @@ export async function GET(
         .in("id", productIds);
 
       if (prodErr) {
-        return NextResponse.json(
-          { error: prodErr.message },
-          { status: 500 }
-        );
+        return NextResponse.json({ error: prodErr.message }, { status: 500 });
       }
 
       pdfPaths = Array.from(
@@ -93,19 +125,20 @@ export async function GET(
 
     // 5) Generar PDF principal con Puppeteer
     browser = await puppeteer.launch({
-  args: chromium.args,
-  executablePath: await chromium.executablePath(),
-  headless: true,
-  defaultViewport: {
-    width: 1280,
-    height: 720,
-  },
-});
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
+      headless: true,
+      defaultViewport: {
+        width: 1280,
+        height: 720,
+      },
+    });
 
     const page = await browser.newPage();
 
     await page.goto(`${baseUrl}/proformas/${id}/pdf`, {
       waitUntil: "networkidle0",
+      timeout: 120000,
     });
 
     const mainPdf = await page.pdf({
@@ -126,7 +159,10 @@ export async function GET(
     const mergedPdf = await PDFDocument.create();
 
     const mainDoc = await PDFDocument.load(mainPdf);
-    const mainPages = await mergedPdf.copyPages(mainDoc, mainDoc.getPageIndices());
+    const mainPages = await mergedPdf.copyPages(
+      mainDoc,
+      mainDoc.getPageIndices()
+    );
     mainPages.forEach((p) => mergedPdf.addPage(p));
 
     // 7) Anexar PDFs de productos
@@ -136,7 +172,11 @@ export async function GET(
         .download(pdfPath);
 
       if (fileErr || !fileData) {
-        console.error("No se pudo descargar PDF del producto:", pdfPath, fileErr?.message);
+        console.error(
+          "No se pudo descargar PDF del producto:",
+          pdfPath,
+          fileErr?.message
+        );
         continue;
       }
 
@@ -144,7 +184,10 @@ export async function GET(
 
       try {
         const annexDoc = await PDFDocument.load(bytes);
-        const annexPages = await mergedPdf.copyPages(annexDoc, annexDoc.getPageIndices());
+        const annexPages = await mergedPdf.copyPages(
+          annexDoc,
+          annexDoc.getPageIndices()
+        );
         annexPages.forEach((p) => mergedPdf.addPage(p));
       } catch (e) {
         console.error("No se pudo anexar PDF:", pdfPath, e);
