@@ -155,11 +155,17 @@ export default function EditProformaPage() {
   const [newClientAddress, setNewClientAddress] = useState("");
 
   const totals = useMemo(() => {
-    const subtotal = items.reduce((acc, it) => acc + (it.qty * it.unit_price || 0), 0);
+    const subtotal = items.reduce(
+      (acc, it) => acc + (Number(it.qty) * Number(it.unit_price) || 0),
+      0
+    );
 
     const taxableBase = items
       .filter((it) => it.taxable)
-      .reduce((acc, it) => acc + (it.qty * it.unit_price || 0), 0);
+      .reduce(
+        (acc, it) => acc + (Number(it.qty) * Number(it.unit_price) || 0),
+        0
+      );
 
     const iva = +(taxableBase * (ivaRate / 100)).toFixed(2);
     const total = +(subtotal + iva).toFixed(2);
@@ -374,87 +380,87 @@ export default function EditProformaPage() {
     setShowClientModal(false);
   }
 
- async function save() {
-  if (saving) return;
+  async function save() {
+    if (saving) return;
 
-  setMsg(null);
+    setMsg(null);
 
-  if (!clientId) {
-    setMsg("Selecciona un cliente.");
-    return;
-  }
-
-  if (items.length === 0) {
-    setMsg("Agrega al menos un ítem.");
-    return;
-  }
-
-  for (const it of items) {
-    if (!it.description.trim()) {
-      setMsg("Hay un ítem sin descripción.");
+    if (!clientId) {
+      setMsg("Selecciona un cliente.");
       return;
     }
-    if (it.qty <= 0) {
-      setMsg("Cantidad inválida.");
+
+    if (items.length === 0) {
+      setMsg("Agrega al menos un ítem.");
       return;
     }
-    if (it.unit_price < 0) {
-      setMsg("Precio inválido.");
-      return;
+
+    for (const it of items) {
+      if (!it.description.trim()) {
+        setMsg("Hay un ítem sin descripción.");
+        return;
+      }
+      if (Number(it.qty) <= 0) {
+        setMsg("Cantidad inválida.");
+        return;
+      }
+      if (Number(it.unit_price) < 0) {
+        setMsg("Precio inválido.");
+        return;
+      }
+    }
+
+    setSaving(true);
+
+    try {
+      const { error: proErr } = await supabase
+        .from("proformas")
+        .update({
+          client_id: clientId,
+          iva_rate: ivaRate,
+          subtotal: totals.subtotal,
+          iva: totals.iva,
+          total: totals.total,
+          validez_oferta: validezOferta.trim() || null,
+          plazo_ejecucion: plazoEjecucion.trim() || null,
+          forma_pago: formaPago.trim() || null,
+          garantia: garantia.trim() || null,
+          otros: otros.trim() || null,
+        })
+        .eq("id", id);
+
+      if (proErr) throw proErr;
+
+      const { error: delErr } = await supabase
+        .from("proforma_items")
+        .delete()
+        .eq("proforma_id", id);
+
+      if (delErr) throw delErr;
+
+      const itemsPayload = items.map((it) => ({
+        proforma_id: id,
+        product_id: it.product_id,
+        description: it.description.trim(),
+        qty: Number(it.qty),
+        unit_price: Number(it.unit_price),
+        taxable: !!it.taxable,
+        line_total: +(Number(it.qty) * Number(it.unit_price)).toFixed(2),
+      }));
+
+      const { error: insErr } = await supabase
+        .from("proforma_items")
+        .insert(itemsPayload);
+
+      if (insErr) throw insErr;
+
+      router.push(`/proformas/${id}`);
+    } catch (error: any) {
+      setMsg(error?.message ?? "No se pudo guardar la proforma.");
+    } finally {
+      setSaving(false);
     }
   }
-
-  setSaving(true);
-
-  try {
-    const { error: proErr } = await supabase
-      .from("proformas")
-      .update({
-        client_id: clientId,
-        iva_rate: ivaRate,
-        subtotal: totals.subtotal,
-        iva: totals.iva,
-        total: totals.total,
-        validez_oferta: validezOferta.trim() || null,
-        plazo_ejecucion: plazoEjecucion.trim() || null,
-        forma_pago: formaPago.trim() || null,
-        garantia: garantia.trim() || null,
-        otros: otros.trim() || null,
-      })
-      .eq("id", id);
-
-    if (proErr) throw proErr;
-
-    const { error: delErr } = await supabase
-      .from("proforma_items")
-      .delete()
-      .eq("proforma_id", id);
-
-    if (delErr) throw delErr;
-
-    const itemsPayload = items.map((it) => ({
-      proforma_id: id,
-      product_id: it.product_id,
-      description: it.description.trim(),
-      qty: Number(it.qty),
-      unit_price: Number(it.unit_price),
-      taxable: !!it.taxable,
-      line_total: +(Number(it.qty) * Number(it.unit_price)).toFixed(2),
-    }));
-
-    const { error: insErr } = await supabase
-      .from("proforma_items")
-      .insert(itemsPayload);
-
-    if (insErr) throw insErr;
-
-    router.push(`/proformas/${id}`);
-  } catch (error: any) {
-    setMsg(error?.message ?? "No se pudo guardar la proforma.");
-  } finally {
-    setSaving(false);
-  }
-}
 
   if (loading) {
     return (
@@ -650,7 +656,7 @@ export default function EditProformaPage() {
                 <AnimatePresence initial={false}>
                   {items.map((it, i) => (
                     <motion.div
-                      key={i}
+                      key={it.id ?? `new-${i}`}
                       initial={{ opacity: 0, y: 18 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10, transition: { duration: 0.18 } }}
