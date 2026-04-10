@@ -112,7 +112,7 @@ async function getData(id: number) {
 
   const cacheKey = normalizedProforma.created_at
     ? new Date(normalizedProforma.created_at).getTime()
-    : Date.now();
+    : 1;
 
   return {
     pro: normalizedProforma,
