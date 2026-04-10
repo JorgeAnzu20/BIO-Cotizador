@@ -385,7 +385,7 @@ export default function ClientsPage() {
                             </div>
 
                             <div style={{ marginTop: 4, color: COLORS.text, wordBreak: "break-word" }}>
-                              <b>Reporte:</b> {c.address ?? "-"}
+                              <b>Ciudad:</b> {c.address ?? "-"}
                             </div>
                           </div>
                         </div>
