@@ -67,6 +67,7 @@ export default function AdminUsersPage() {
   const [meRole, setMeRole] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   const [cedula, setCedula] = useState("");
   const [password, setPassword] = useState("");
@@ -78,6 +79,13 @@ export default function AdminUsersPage() {
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [search, setSearch] = useState("");
   const [roleDrafts, setRoleDrafts] = useState<Record<string, "admin" | "worker">>({});
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   async function load() {
     setMsg("");
@@ -342,12 +350,12 @@ export default function AdminUsersPage() {
         variants={pageVariants}
         initial="hidden"
         animate="visible"
-        style={{ maxWidth: 1300, margin: "0 auto", padding: 24 }}
+        style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? 14 : 24 }}
       >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "290px 1fr",
+            gridTemplateColumns: isMobile ? "1fr" : "290px 1fr",
             gap: 20,
           }}
         >
@@ -400,7 +408,7 @@ export default function AdminUsersPage() {
             </div>
           </motion.div>
 
-          <div style={{ display: "grid", gap: 20 }}>
+          <div style={{ display: "grid", gap: 20, minWidth: 0 }}>
             <motion.div variants={itemVariants} style={panelStyle}>
               <div style={{ fontSize: 14, opacity: 0.85 }}>Módulo admin</div>
               <div style={{ fontSize: 30, fontWeight: 900, marginTop: 6 }}>
@@ -436,7 +444,9 @@ export default function AdminUsersPage() {
               variants={itemVariants}
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                gridTemplateColumns: isMobile
+                  ? "1fr"
+                  : "repeat(3, minmax(0, 1fr))",
                 gap: 16,
               }}
             >
@@ -509,10 +519,20 @@ export default function AdminUsersPage() {
                   </select>
                 </label>
 
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    flexWrap: "wrap",
+                    flexDirection: isMobile ? "column" : "row",
+                  }}
+                >
                   <motion.button
                     onClick={createUser}
-                    style={primaryInlineButtonStyle}
+                    style={{
+                      ...primaryInlineButtonStyle,
+                      width: isMobile ? "100%" : undefined,
+                    }}
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
                   >
@@ -570,6 +590,7 @@ export default function AdminUsersPage() {
                               fontSize: 16,
                               outline: "none",
                               color: COLORS.text,
+                              wordBreak: "break-word",
                             }}
                           >
                             {p.full_name ?? "Sin nombre"} {p.cedula ? `- ${p.cedula}` : ""}
@@ -595,7 +616,15 @@ export default function AdminUsersPage() {
                                 Cambiar rol
                               </div>
 
-                              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  gap: 10,
+                                  flexWrap: "wrap",
+                                  alignItems: "center",
+                                  flexDirection: isMobile ? "column" : "row",
+                                }}
+                              >
                                 <select
                                   value={roleDrafts[p.id] ?? (p.role === "admin" ? "admin" : "worker")}
                                   onChange={(e) =>
@@ -604,7 +633,12 @@ export default function AdminUsersPage() {
                                       [p.id]: e.target.value as "admin" | "worker",
                                     }))
                                   }
-                                  style={{ ...selectStyle, marginTop: 0, maxWidth: 220 }}
+                                  style={{
+                                    ...selectStyle,
+                                    marginTop: 0,
+                                    maxWidth: isMobile ? "100%" : 220,
+                                    width: isMobile ? "100%" : undefined,
+                                  }}
                                 >
                                   <option value="worker">worker (trabajador)</option>
                                   <option value="admin">admin</option>
@@ -613,7 +647,10 @@ export default function AdminUsersPage() {
                                 <motion.button
                                   onClick={() => updateUserRole(p.id, p.role)}
                                   disabled={updatingRoleId === p.id}
-                                  style={primaryInlineButtonStyle}
+                                  style={{
+                                    ...primaryInlineButtonStyle,
+                                    width: isMobile ? "100%" : undefined,
+                                  }}
                                   whileHover={{ scale: 1.03 }}
                                   whileTap={{ scale: 0.97 }}
                                 >
@@ -625,7 +662,10 @@ export default function AdminUsersPage() {
                             <div style={{ marginTop: 10 }}>
                               <motion.button
                                 onClick={() => deleteUser(p.id, p.full_name, p.cedula)}
-                                style={dangerButtonStyle}
+                                style={{
+                                  ...dangerButtonStyle,
+                                  width: isMobile ? "100%" : undefined,
+                                }}
                                 whileHover={{ scale: 1.03 }}
                                 whileTap={{ scale: 0.97 }}
                               >
@@ -670,6 +710,7 @@ function MetricCard({ title, value }: { title: string; value: string }) {
           fontWeight: 900,
           lineHeight: 1,
           color: COLORS.text,
+          wordBreak: "break-word",
         }}
       >
         {value}
