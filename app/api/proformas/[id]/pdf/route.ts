@@ -23,12 +23,15 @@ export async function GET(
     const requestOrigin = new URL(req.url).origin;
     const envBaseUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "";
 
-    const baseUrl =
+    let baseUrl = requestOrigin;
+
+    if (
       envBaseUrl &&
       !envBaseUrl.includes("localhost") &&
       !envBaseUrl.includes("127.0.0.1")
-        ? envBaseUrl.replace(/\/+$/, "")
-        : requestOrigin;
+    ) {
+      baseUrl = envBaseUrl.replace(/\/+$/, "");
+    }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -51,7 +54,6 @@ export async function GET(
       auth: { persistSession: false },
     });
 
-    // 1) Buscar proforma
     const { data: proforma, error: proErr } = await supabase
       .from("proformas")
       .select("id, number")
@@ -65,7 +67,6 @@ export async function GET(
       );
     }
 
-    // 2) Leer items de la proforma
     const { data: rawItems, error: itemsErr } = await supabase
       .from("proforma_items")
       .select("product_id")
@@ -75,7 +76,6 @@ export async function GET(
       return NextResponse.json({ error: itemsErr.message }, { status: 500 });
     }
 
-    // 3) Sacar product_id únicos válidos
     const productIds = Array.from(
       new Set(
         (rawItems ?? [])
@@ -84,7 +84,6 @@ export async function GET(
       )
     ) as number[];
 
-    // 4) Buscar pdf_path en products
     let pdfPaths: string[] = [];
 
     if (productIds.length > 0) {
@@ -106,7 +105,6 @@ export async function GET(
       ) as string[];
     }
 
-    // 5) Generar PDF principal con Puppeteer
     browser = await puppeteer.launch({
       args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
       executablePath: await chromium.executablePath(),
@@ -119,7 +117,9 @@ export async function GET(
 
     const page = await browser.newPage();
 
-    await page.goto(`${baseUrl}/proformas/${id}/pdf`, {
+    const pdfPageUrl = `${baseUrl}/proformas/${id}/pdf`;
+
+    await page.goto(pdfPageUrl, {
       waitUntil: "networkidle0",
       timeout: 120000,
     });
@@ -138,7 +138,6 @@ export async function GET(
     await browser.close();
     browser = null;
 
-    // 6) Crear PDF final
     const mergedPdf = await PDFDocument.create();
 
     const mainDoc = await PDFDocument.load(mainPdf);
@@ -148,7 +147,6 @@ export async function GET(
     );
     mainPages.forEach((p) => mergedPdf.addPage(p));
 
-    // 7) Anexar PDFs de productos
     for (const pdfPath of pdfPaths) {
       const { data: fileData, error: fileErr } = await supabase.storage
         .from(PRODUCT_PDF_BUCKET)
@@ -177,7 +175,6 @@ export async function GET(
       }
     }
 
-    // 8) Exportar final
     const finalPdfBytes = await mergedPdf.save();
 
     return new NextResponse(Buffer.from(finalPdfBytes), {
@@ -194,7 +191,11 @@ export async function GET(
     }
 
     return NextResponse.json(
-      { error: error?.message ?? "No se pudo generar el PDF" },
+      {
+        error: error?.message ?? "No se pudo generar el PDF",
+        appUrlEnv: process.env.NEXT_PUBLIC_APP_URL ?? null,
+        requestOrigin: new URL(req.url).origin,
+      },
       { status: 500 }
     );
   }
