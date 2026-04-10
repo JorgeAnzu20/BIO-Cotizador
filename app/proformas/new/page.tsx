@@ -520,13 +520,7 @@ export default function NewProformaPage() {
 
             <div style={{ display: "grid", gap: 10 }}>
               <Link href="/proformas" style={{ textDecoration: "none" }}>
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  style={navButtonStyle}
-                >
-                  ← Volver a proformas
-                </motion.button>
+      
               </Link>
 
               <motion.button
@@ -551,6 +545,30 @@ export default function NewProformaPage() {
                 Selecciona cliente, agrega productos y personaliza el objeto de compra.
               </div>
             </motion.div>
+            <motion.div variants={itemVariants} style={panelStyle}>
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "flex-end",
+      gap: 12,
+      flexDirection: isMobile ? "column" : "row",
+    }}
+  >
+    <motion.button
+      type="button"
+      onClick={save}
+      style={{
+        ...primaryInlineButtonStyle,
+        width: isMobile ? "100%" : undefined,
+      }}
+      disabled={saving}
+      whileHover={{ scale: 1.03 }}
+      whileTap={{ scale: 0.97 }}
+    >
+      {saving ? "Guardando..." : "Guardar proforma"}
+    </motion.button>
+  </div>
+</motion.div>
 
             <AnimatePresence>
               {msg && (
