@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import chromium from "@sparticuz/chromium";
-import puppeteer from "puppeteer-core";
+import puppeteer, { Browser } from "puppeteer-core";
 import { PDFDocument } from "pdf-lib";
 import { createClient } from "@supabase/supabase-js";
 
@@ -10,7 +10,7 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
+  let browser: Browser | null = null;
 
   try {
     const resolved = await params;
@@ -100,9 +100,9 @@ export async function GET(
         new Set(
           (products ?? [])
             .map((p: any) => p?.pdf_path ?? null)
-            .filter((x: string | null): x is string => !!x)
+            .filter((x: string | null) => !!x)
         )
-      );
+      ) as string[];
     }
 
     browser = await puppeteer.launch({
@@ -117,10 +117,12 @@ export async function GET(
 
     const page = await browser.newPage();
 
+    const pdfPageUrl = `${baseUrl}/proformas/${id}/pdf`;
+
     await page.goto(`${baseUrl}/proformas/${id}/pdf`, {
-      waitUntil: "domcontentloaded",
+  waitUntil: "domcontentloaded",
       timeout: 15000,
-    });
+});
 
     const mainPdf = await page.pdf({
       format: "A4",
@@ -133,7 +135,6 @@ export async function GET(
       },
     });
 
-    await page.close();
     await browser.close();
     browser = null;
 
@@ -146,29 +147,21 @@ export async function GET(
     );
     mainPages.forEach((p) => mergedPdf.addPage(p));
 
-    const downloadedFiles = await Promise.all(
-      pdfPaths.map(async (pdfPath) => {
-        const { data, error } = await supabase.storage
-          .from(PRODUCT_PDF_BUCKET)
-          .download(pdfPath);
+    for (const pdfPath of pdfPaths) {
+      const { data: fileData, error: fileErr } = await supabase.storage
+        .from(PRODUCT_PDF_BUCKET)
+        .download(pdfPath);
 
-        if (error || !data) {
-          console.error(
-            "No se pudo descargar PDF del producto:",
-            pdfPath,
-            error?.message
-          );
-          return null;
-        }
+      if (fileErr || !fileData) {
+        console.error(
+          "No se pudo descargar PDF del producto:",
+          pdfPath,
+          fileErr?.message
+        );
+        continue;
+      }
 
-        return { pdfPath, fileData: data };
-      })
-    );
-
-    for (const file of downloadedFiles) {
-      if (!file?.fileData) continue;
-
-      const bytes = await file.fileData.arrayBuffer();
+      const bytes = await fileData.arrayBuffer();
 
       try {
         const annexDoc = await PDFDocument.load(bytes);
@@ -178,7 +171,7 @@ export async function GET(
         );
         annexPages.forEach((p) => mergedPdf.addPage(p));
       } catch (e) {
-        console.error("No se pudo anexar PDF:", file.pdfPath, e);
+        console.error("No se pudo anexar PDF:", pdfPath, e);
       }
     }
 
