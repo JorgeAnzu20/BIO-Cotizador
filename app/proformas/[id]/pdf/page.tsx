@@ -140,85 +140,160 @@ export default async function ProformaPdfPage({
   return (
     <div>
       <style>{`
-  * {
-    box-sizing: border-box;
-  }
+        * {
+          box-sizing: border-box;
+        }
 
-  @page {
-    size: A4;
-    margin: 0;
-  }
+        @page {
+          size: A4;
+          margin: 0;
+        }
 
-  html, body {
-    margin: 0;
-    padding: 0;
-    background: #ffffff;
-    font-family: Arial, sans-serif;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
+        html, body {
+          margin: 0;
+          padding: 0;
+          background: #ffffff;
+          font-family: Arial, sans-serif;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
 
-  body {
-    width: 21cm;
-    min-height: 29.7cm;
-  }
+        body {
+          width: 21cm;
+          min-height: 29.7cm;
+        }
 
-  .page {
-    width: 21cm;
-    height: 29.7cm;
-    position: relative;
-    overflow: hidden;
-    color: #000;
-    background: #fff;
-    display: block;
-  }
+        .page {
+          width: 21cm;
+          height: 29.7cm;
+          position: relative;
+          overflow: hidden;
+          color: #000;
+          background: #fff;
+          display: block;
+        }
 
-  /* ✅ HEADER PERFECTO */
-  .header {
-    width: 21cm;
-    height: 4cm;
-    overflow: hidden;
-    display: block;
-  }
+        .header {
+          width: 21cm;
+          height: 4cm;
+          overflow: hidden;
+          display: block;
+        }
 
-  .header img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
+        .header img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
 
-  .content {
-    padding: 0.28cm 0.28cm 0 0.28cm;
-  }
+        .content {
+          padding: 0.28cm 0.28cm 0 0.28cm;
+        }
 
-  .box {
-    border: 2px solid #222;
-  }
+        .box {
+          border: 2px solid #222;
+        }
 
-  /* 🔥 FOOTER CORREGIDO */
-  .footer-wrap {
-    position: absolute;
-    left: 0;
-    bottom: 0;
-  }
+        .title-blue {
+          color: #00a2df;
+          font-weight: 800;
+          font-size: 12px;
+        }
 
-  .footer {
-    width: 21cm;
-    height: 4cm;
-    overflow: hidden;
-    background: #fff;
-    display: block;
-  }
+        .center {
+          text-align: center;
+        }
 
-  .footer img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
+        .bold {
+          font-weight: 700;
+        }
 
-`}</style>
+        .small {
+          font-size: 11px;
+        }
+
+        table {
+          border-collapse: collapse;
+          width: 100%;
+        }
+
+        .client-table td {
+          font-size: 12px;
+          height: 0.52cm;
+          vertical-align: middle;
+        }
+
+        .client-label {
+          width: 1.8cm;
+          font-weight: 700;
+          text-align: right;
+          padding-right: 6px;
+          white-space: nowrap;
+        }
+
+        .client-value {
+          border: 1px solid #444;
+          padding: 0 6px;
+          line-height: 1.15;
+        }
+
+        .tel-box {
+          display: inline-flex;
+          align-items: center;
+          border: 1px solid #444;
+          min-width: 4.5cm;
+          height: 0.52cm;
+          padding: 0 6px;
+          line-height: 1.15;
+        }
+
+        .detail-table th,
+        .detail-table td {
+          font-size: 11px;
+          line-height: 1.15;
+        }
+
+        .detail-row td {
+          height: 0.52cm;
+          vertical-align: middle;
+          padding: 0 4px;
+        }
+
+        .bank {
+          border: 2px solid #222;
+          padding: 0.03cm 0.2cm;
+          text-align: center;
+          font-size: 10px;
+          font-style: italic;
+          margin: 0.1cm 0.28cm 0 0.28cm;
+        }
+
+        .footer-wrap {
+          position: absolute;
+          left: 0.28cm;
+          right: 0.28cm;
+          bottom: 0.18cm;
+        }
+
+        .footer {
+          width: 100%;
+          height: 3.2cm;
+          overflow: hidden;
+          background: #fff;
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+        }
+
+        .footer img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          object-position: center bottom;
+          display: block;
+        }
+      `}</style>
 
       <div className="page">
         <div className="header">
