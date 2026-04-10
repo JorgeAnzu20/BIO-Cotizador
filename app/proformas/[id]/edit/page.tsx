@@ -374,20 +374,39 @@ export default function EditProformaPage() {
     setShowClientModal(false);
   }
 
-  async function save() {
-    setMsg(null);
+ async function save() {
+  if (saving) return;
 
-    if (!clientId) return setMsg("Selecciona un cliente.");
-    if (items.length === 0) return setMsg("Agrega al menos un ítem.");
+  setMsg(null);
 
-    for (const it of items) {
-      if (!it.description.trim()) return setMsg("Hay un ítem sin descripción.");
-      if (it.qty <= 0) return setMsg("Cantidad inválida.");
-      if (it.unit_price < 0) return setMsg("Precio inválido.");
+  if (!clientId) {
+    setMsg("Selecciona un cliente.");
+    return;
+  }
+
+  if (items.length === 0) {
+    setMsg("Agrega al menos un ítem.");
+    return;
+  }
+
+  for (const it of items) {
+    if (!it.description.trim()) {
+      setMsg("Hay un ítem sin descripción.");
+      return;
     }
+    if (it.qty <= 0) {
+      setMsg("Cantidad inválida.");
+      return;
+    }
+    if (it.unit_price < 0) {
+      setMsg("Precio inválido.");
+      return;
+    }
+  }
 
-    setSaving(true);
+  setSaving(true);
 
+  try {
     const { error: proErr } = await supabase
       .from("proformas")
       .update({
@@ -404,44 +423,38 @@ export default function EditProformaPage() {
       })
       .eq("id", id);
 
-    if (proErr) {
-      setMsg(proErr.message);
-      setSaving(false);
-      return;
-    }
+    if (proErr) throw proErr;
 
     const { error: delErr } = await supabase
       .from("proforma_items")
       .delete()
       .eq("proforma_id", id);
 
-    if (delErr) {
-      setMsg(delErr.message);
-      setSaving(false);
-      return;
-    }
+    if (delErr) throw delErr;
 
     const itemsPayload = items.map((it) => ({
       proforma_id: id,
       product_id: it.product_id,
-      description: it.description,
-      qty: it.qty,
-      unit_price: it.unit_price,
-      taxable: it.taxable,
-      line_total: +(it.qty * it.unit_price).toFixed(2),
+      description: it.description.trim(),
+      qty: Number(it.qty),
+      unit_price: Number(it.unit_price),
+      taxable: !!it.taxable,
+      line_total: +(Number(it.qty) * Number(it.unit_price)).toFixed(2),
     }));
 
-    const { error: insErr } = await supabase.from("proforma_items").insert(itemsPayload);
+    const { error: insErr } = await supabase
+      .from("proforma_items")
+      .insert(itemsPayload);
 
-    if (insErr) {
-      setMsg(insErr.message);
-      setSaving(false);
-      return;
-    }
+    if (insErr) throw insErr;
 
-    setSaving(false);
     router.push(`/proformas/${id}`);
+  } catch (error: any) {
+    setMsg(error?.message ?? "No se pudo guardar la proforma.");
+  } finally {
+    setSaving(false);
   }
+}
 
   if (loading) {
     return (
