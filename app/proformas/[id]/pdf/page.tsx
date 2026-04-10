@@ -16,7 +16,7 @@ export default async function ProformaPdfPage({
   // ...tu lógica anterior sigue igual
 
   const descuento = 0;
-  const subtotal2 = Number(proforma.subtotal ?? 0) - descuento;
+  const subtotal2 = Number(proformas.subtotal ?? 0) - descuento;
 
   return (
     <div className="screen-wrap">
