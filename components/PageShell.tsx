@@ -20,7 +20,9 @@ export default function PageShell({ children }: PageShellProps) {
         color: COLORS.text,
         fontFamily: "Inter, Arial, sans-serif",
         position: "relative",
-        overflow: "hidden",
+        overflowX: "hidden",
+        overflowY: "auto",
+        width: "100%",
       }}
     >
       <img
@@ -31,8 +33,8 @@ export default function PageShell({ children }: PageShellProps) {
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          width: "4250px",
-          maxWidth: "70vw",
+          width: "min(70vw, 1400px)",
+          height: "auto",
           opacity: 0.08,
           pointerEvents: "none",
           userSelect: "none",
@@ -40,7 +42,16 @@ export default function PageShell({ children }: PageShellProps) {
         }}
       />
 
-      <div style={{ position: "relative", zIndex: 1 }}>{children}</div>
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          width: "100%",
+          minWidth: 0,
+        }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
