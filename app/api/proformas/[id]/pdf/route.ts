@@ -94,9 +94,12 @@ export async function GET(
     // 5) Generar PDF principal con Puppeteer
     browser = await puppeteer.launch({
   args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
-  defaultViewport: chromium.defaultViewport,
   executablePath: await chromium.executablePath(),
-  headless: chromium.headless,
+  headless: true,
+  defaultViewport: {
+    width: 1280,
+    height: 720,
+  },
 });
 
     const page = await browser.newPage();
