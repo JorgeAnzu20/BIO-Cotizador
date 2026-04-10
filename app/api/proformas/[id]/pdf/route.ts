@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import chromium from "@sparticuz/chromium";
 import puppeteer, { Browser } from "puppeteer-core";
 import { PDFDocument } from "pdf-lib";
 import { createClient } from "@supabase/supabase-js";
