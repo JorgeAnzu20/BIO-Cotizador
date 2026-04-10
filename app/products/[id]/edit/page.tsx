@@ -80,6 +80,7 @@ export default function EditProductPage() {
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -89,6 +90,13 @@ export default function EditProductPage() {
   const [iva, setIva] = useState(true);
   const [pdfPath, setPdfPath] = useState<string | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   async function load() {
     const { data, error } = await supabase
@@ -256,12 +264,12 @@ export default function EditProductPage() {
         variants={pageVariants}
         initial="hidden"
         animate="visible"
-        style={{ maxWidth: 1050, margin: "0 auto", padding: 24 }}
+        style={{ maxWidth: 1050, margin: "0 auto", padding: isMobile ? 14 : 24 }}
       >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "290px 1fr",
+            gridTemplateColumns: isMobile ? "1fr" : "290px 1fr",
             gap: 20,
           }}
         >
@@ -315,7 +323,7 @@ export default function EditProductPage() {
             </div>
           </motion.div>
 
-          <div style={{ display: "grid", gap: 20 }}>
+          <div style={{ display: "grid", gap: 20, minWidth: 0 }}>
             <motion.div variants={itemVariants} style={panelStyle}>
               <div style={{ fontSize: 14, opacity: 0.85 }}>Edición</div>
               <div style={{ fontSize: 30, fontWeight: 900, marginTop: 6 }}>
@@ -403,10 +411,21 @@ export default function EditProductPage() {
                   </div>
 
                   {pdfPath ? (
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 10,
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                        flexDirection: isMobile ? "column" : "row",
+                      }}
+                    >
                       <motion.button
                         onClick={viewPdf}
-                        style={secondaryButtonStyle}
+                        style={{
+                          ...secondaryButtonStyle,
+                          width: isMobile ? "100%" : undefined,
+                        }}
                         whileHover={{ scale: 1.03 }}
                         whileTap={{ scale: 0.97 }}
                       >
@@ -415,7 +434,10 @@ export default function EditProductPage() {
 
                       <motion.button
                         onClick={removePdf}
-                        style={dangerButtonStyle}
+                        style={{
+                          ...dangerButtonStyle,
+                          width: isMobile ? "100%" : undefined,
+                        }}
                         whileHover={{ scale: 1.03 }}
                         whileTap={{ scale: 0.97 }}
                       >
@@ -437,10 +459,20 @@ export default function EditProductPage() {
                   </label>
                 </div>
 
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    flexWrap: "wrap",
+                    flexDirection: isMobile ? "column" : "row",
+                  }}
+                >
                   <motion.button
                     onClick={save}
-                    style={primaryInlineButtonStyle}
+                    style={{
+                      ...primaryInlineButtonStyle,
+                      width: isMobile ? "100%" : undefined,
+                    }}
                     disabled={saving}
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
@@ -448,9 +480,18 @@ export default function EditProductPage() {
                     {saving ? "Guardando..." : "Guardar cambios"}
                   </motion.button>
 
-                  <Link href="/products">
+                  <Link
+                    href="/products"
+                    style={{
+                      textDecoration: "none",
+                      width: isMobile ? "100%" : undefined,
+                    }}
+                  >
                     <motion.button
-                      style={secondaryButtonStyle}
+                      style={{
+                        ...secondaryButtonStyle,
+                        width: isMobile ? "100%" : undefined,
+                      }}
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
                     >
