@@ -20,6 +20,37 @@ const COLORS = {
   danger: "#ff5a5a",
 };
 
+const pageVariants = {
+  hidden: { opacity: 0, y: 18 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.45,
+      ease: "easeOut" as const,
+      staggerChildren: 0.08,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 22 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, ease: "easeOut" as const },
+  },
+};
+
+const sidebarVariants = {
+  hidden: { opacity: 0, x: -30 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: { duration: 0.45, ease: "easeOut" as const },
+  },
+};
+
 export default function NewBranchPage() {
   const router = useRouter();
 
@@ -49,11 +80,17 @@ export default function NewBranchPage() {
         return;
       }
 
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", user.id)
         .maybeSingle();
+
+      if (error) {
+        setMsg(error.message);
+        setLoading(false);
+        return;
+      }
 
       if ((profile?.role ?? "") !== "admin") {
         router.push("/");
@@ -94,7 +131,16 @@ export default function NewBranchPage() {
   if (loading) {
     return (
       <PageShell>
-        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div
+          style={{
+            minHeight: "100vh",
+            color: COLORS.text,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "Inter, Arial, sans-serif",
+          }}
+        >
           Cargando...
         </div>
       </PageShell>
@@ -104,8 +150,9 @@ export default function NewBranchPage() {
   return (
     <PageShell>
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
+        variants={pageVariants}
+        initial="hidden"
+        animate="visible"
         style={{ maxWidth: 1050, margin: "0 auto", padding: isMobile ? 14 : 24 }}
       >
         <div
@@ -115,32 +162,94 @@ export default function NewBranchPage() {
             gap: 20,
           }}
         >
-          {/* SIDEBAR */}
-          <div style={panelStyle}>
-            <div style={{ fontSize: 24, fontWeight: 900 }}>Sucursales</div>
-
-            <Link href="/branches">
-              <button style={navButtonStyle}>← Volver</button>
-            </Link>
-
-            <button onClick={save} style={primaryButtonStyle}>
-              {saving ? "Guardando..." : "Guardar"}
-            </button>
-          </div>
-
-          {/* FORM */}
-          <div style={{ display: "grid", gap: 20 }}>
-            <div style={panelStyle}>
-              <div style={{ fontSize: 30, fontWeight: 900 }}>
-                Nueva sucursal
-              </div>
+          <motion.div
+            variants={sidebarVariants}
+            style={{
+              background: COLORS.blue,
+              border: `2px solid ${COLORS.cyan}`,
+              borderRadius: 24,
+              padding: 20,
+              height: "fit-content",
+              boxShadow: "0 20px 50px rgba(0,0,0,0.18)",
+              color: COLORS.text,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 24,
+                fontWeight: 900,
+                marginBottom: 6,
+                color: COLORS.bone,
+              }}
+            >
+              Sucursales
             </div>
 
-            {msg && <div style={{ color: "red" }}>{msg}</div>}
+            <div style={{ fontSize: 14, marginBottom: 18, opacity: 0.9 }}>
+              Crear nueva sucursal
+            </div>
 
-            <div style={panelStyle}>
+            <div style={{ display: "grid", gap: 10 }}>
+              <Link href="/branches" style={{ textDecoration: "none" }}>
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  style={navButtonStyle}
+                >
+                  ← Volver a sucursales
+                </motion.button>
+              </Link>
+
+              <motion.button
+                onClick={save}
+                style={primaryButtonStyle}
+                disabled={saving}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+              >
+                {saving ? "Guardando..." : "Guardar sucursal"}
+              </motion.button>
+            </div>
+          </motion.div>
+
+          <div style={{ display: "grid", gap: 20, minWidth: 0 }}>
+            <motion.div variants={itemVariants} style={panelStyle}>
+              <div style={{ fontSize: 14, opacity: 0.85 }}>Nuevo registro</div>
+              <div style={{ fontSize: 30, fontWeight: 900, marginTop: 6 }}>
+                Nueva sucursal
+              </div>
+              <div style={{ marginTop: 10 }}>
+                Agrega una nueva sucursal para organizar mejor tus operaciones.
+              </div>
+            </motion.div>
+
+            <AnimatePresence>
+              {msg && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.18 }}
+                  style={{
+                    background: "#FEE2E2",
+                    border: "1px solid #FCA5A5",
+                    color: "#991B1B",
+                    borderRadius: 16,
+                    padding: 14,
+                    fontWeight: 600,
+                  }}
+                >
+                  {msg}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <motion.div variants={itemVariants} style={panelStyle}>
+              <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 14 }}>
+                Datos de la sucursal
+              </div>
+
               <div style={{ display: "grid", gap: 14 }}>
-                {/* NOMBRE */}
                 <label style={labelStyle}>
                   Nombre
                   <input
@@ -150,7 +259,6 @@ export default function NewBranchPage() {
                   />
                 </label>
 
-                {/* CANTÓN */}
                 <label style={labelStyle}>
                   Cantón
                   <input
@@ -160,7 +268,6 @@ export default function NewBranchPage() {
                   />
                 </label>
 
-                {/* PROVINCIA */}
                 <label style={labelStyle}>
                   Provincia
                   <input
@@ -170,37 +277,48 @@ export default function NewBranchPage() {
                   />
                 </label>
 
-                {/* BOTONES */}
                 <div
                   style={{
                     display: "flex",
                     gap: 10,
+                    flexWrap: "wrap",
                     flexDirection: isMobile ? "column" : "row",
                   }}
                 >
-                  <button
+                  <motion.button
                     onClick={save}
                     style={{
                       ...primaryInlineButtonStyle,
                       width: isMobile ? "100%" : undefined,
                     }}
+                    disabled={saving}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
                   >
-                    Guardar
-                  </button>
+                    {saving ? "Guardando..." : "Guardar sucursal"}
+                  </motion.button>
 
-                  <Link href="/branches">
-                    <button
+                  <Link
+                    href="/branches"
+                    style={{
+                      textDecoration: "none",
+                      width: isMobile ? "100%" : undefined,
+                    }}
+                  >
+                    <motion.button
                       style={{
                         ...secondaryButtonStyle,
                         width: isMobile ? "100%" : undefined,
                       }}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
                     >
                       Cancelar
-                    </button>
+                    </motion.button>
                   </Link>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
       </motion.div>
@@ -209,37 +327,72 @@ export default function NewBranchPage() {
 }
 
 const panelStyle: React.CSSProperties = {
-  background: "#F5F5F0",
+  background: COLORS.bone,
+  border: `1px solid ${COLORS.grayBorder}`,
+  borderRadius: 24,
   padding: 20,
-  borderRadius: 16,
+  boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
+  color: COLORS.text,
 };
 
 const navButtonStyle: React.CSSProperties = {
-  marginTop: 10,
-  padding: 10,
+  width: "100%",
+  border: `1px solid ${COLORS.grayBorder}`,
+  background: COLORS.bone,
+  color: COLORS.text,
+  padding: "12px 14px",
+  borderRadius: 14,
+  fontWeight: 700,
+  cursor: "pointer",
+  textAlign: "left",
 };
 
 const primaryButtonStyle: React.CSSProperties = {
-  marginTop: 10,
-  padding: 10,
-  background: "#05DBF2",
+  width: "100%",
+  border: "none",
+  background: COLORS.cyan,
+  color: COLORS.text,
+  padding: "12px 14px",
+  borderRadius: 14,
+  fontWeight: 800,
+  cursor: "pointer",
+  textAlign: "left",
 };
 
 const primaryInlineButtonStyle: React.CSSProperties = {
-  padding: 12,
-  background: "#05DBF2",
+  border: "none",
+  background: COLORS.cyan,
+  color: COLORS.text,
+  padding: "12px 16px",
+  borderRadius: 12,
+  fontWeight: 800,
+  cursor: "pointer",
 };
 
 const secondaryButtonStyle: React.CSSProperties = {
-  padding: 12,
+  border: `1px solid ${COLORS.grayBorder}`,
+  background: COLORS.white,
+  color: COLORS.text,
+  padding: "12px 16px",
+  borderRadius: 12,
+  fontWeight: 700,
+  cursor: "pointer",
 };
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: 12,
   marginTop: 6,
+  borderRadius: 14,
+  border: `1px solid ${COLORS.grayBorder}`,
+  background: COLORS.white,
+  color: COLORS.text,
+  outline: "none",
+  boxSizing: "border-box",
 };
 
 const labelStyle: React.CSSProperties = {
   display: "block",
+  fontSize: 14,
+  color: COLORS.text,
 };
