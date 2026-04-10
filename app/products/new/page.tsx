@@ -61,6 +61,7 @@ export default function NewProductPage() {
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
 
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -69,6 +70,13 @@ export default function NewProductPage() {
   const [price, setPrice] = useState("");
   const [iva, setIva] = useState(true);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -196,12 +204,12 @@ export default function NewProductPage() {
         variants={pageVariants}
         initial="hidden"
         animate="visible"
-        style={{ maxWidth: 1050, margin: "0 auto", padding: 24 }}
+        style={{ maxWidth: 1050, margin: "0 auto", padding: isMobile ? 14 : 24 }}
       >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "290px 1fr",
+            gridTemplateColumns: isMobile ? "1fr" : "290px 1fr",
             gap: 20,
           }}
         >
@@ -255,7 +263,7 @@ export default function NewProductPage() {
             </div>
           </motion.div>
 
-          <div style={{ display: "grid", gap: 20 }}>
+          <div style={{ display: "grid", gap: 20, minWidth: 0 }}>
             <motion.div variants={itemVariants} style={panelStyle}>
               <div style={{ fontSize: 14, opacity: 0.85 }}>Nuevo registro</div>
               <div style={{ fontSize: 30, fontWeight: 900, marginTop: 6 }}>
@@ -340,10 +348,20 @@ export default function NewProductPage() {
                   />
                 </label>
 
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    flexWrap: "wrap",
+                    flexDirection: isMobile ? "column" : "row",
+                  }}
+                >
                   <motion.button
                     onClick={save}
-                    style={primaryInlineButtonStyle}
+                    style={{
+                      ...primaryInlineButtonStyle,
+                      width: isMobile ? "100%" : undefined,
+                    }}
                     disabled={saving}
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
@@ -351,9 +369,18 @@ export default function NewProductPage() {
                     {saving ? "Guardando..." : "Guardar producto"}
                   </motion.button>
 
-                  <Link href="/products">
+                  <Link
+                    href="/products"
+                    style={{
+                      textDecoration: "none",
+                      width: isMobile ? "100%" : undefined,
+                    }}
+                  >
                     <motion.button
-                      style={secondaryButtonStyle}
+                      style={{
+                        ...secondaryButtonStyle,
+                        width: isMobile ? "100%" : undefined,
+                      }}
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
                     >
