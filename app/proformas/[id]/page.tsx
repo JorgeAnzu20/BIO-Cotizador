@@ -299,7 +299,7 @@ export default function ProformaDetailPage() {
                 Teléfonos: 099 836 9773 - 097 251 6157 - 095 942 7569
               </div>
               <div style={{ fontSize: 11 }}>
-                Correo electrónico: ventas.uio@biometrisec.com - contactanos@biometrisec.com - contabilidad@biometricoec.com
+                Correo electrónico: ventas.uio@biometricosec.com - contactanos@biometricosec.com - contabilidad@biometricosec.com
               </div>
             </div>
 
