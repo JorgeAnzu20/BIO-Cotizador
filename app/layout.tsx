@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -17,6 +17,11 @@ export const metadata: Metadata = {
   description: "Sistema empresarial",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -30,6 +35,8 @@ export default function RootLayout({
           margin: 0,
           padding: 0,
           background: "#E5E7EB",
+          width: "100%",
+          overflowX: "hidden",
         }}
       >
         <div
@@ -37,19 +44,22 @@ export default function RootLayout({
             minHeight: "100vh",
             position: "relative",
             overflow: "hidden",
+            width: "100%",
           }}
         >
-          {/* 🔥 LOGO GLOBAL MARCA DE AGUA */}
+          {/* LOGO GLOBAL MARCA DE AGUA */}
           <img
             src="/logo.png"
             alt="logo"
             style={{
-               position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: "2250px",
-          opacity: 0.12,
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "min(90vw, 2250px)",
+              maxWidth: "2250px",
+              height: "auto",
+              opacity: 0.12,
               pointerEvents: "none",
               userSelect: "none",
               zIndex: 0,
@@ -58,7 +68,14 @@ export default function RootLayout({
           />
 
           {/* CONTENIDO */}
-          <div style={{ position: "relative", zIndex: 1 }}>
+          <div
+            style={{
+              position: "relative",
+              zIndex: 1,
+              width: "100%",
+              minWidth: 0,
+            }}
+          >
             {children}
           </div>
         </div>
