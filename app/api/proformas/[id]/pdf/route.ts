@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import puppeteer, { Browser } from "puppeteer";
+import puppeteer, { Browser } from "puppeteer-core";
 import { PDFDocument } from "pdf-lib";
 import { createClient } from "@supabase/supabase-js";
 
@@ -92,8 +92,11 @@ export async function GET(
 
     // 5) Generar PDF principal con Puppeteer
     browser = await puppeteer.launch({
-      headless: true,
-    });
+  args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
+  defaultViewport: chromium.defaultViewport,
+  executablePath: await chromium.executablePath(),
+  headless: chromium.headless,
+});
 
     const page = await browser.newPage();
 
