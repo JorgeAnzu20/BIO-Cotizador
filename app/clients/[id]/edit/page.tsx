@@ -68,12 +68,20 @@ export default function EditClientPage() {
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const [fullName, setFullName] = useState("");
   const [document, setDocument] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   async function load() {
     setMsg("");
@@ -169,16 +177,15 @@ export default function EditClientPage() {
         variants={pageVariants}
         initial="hidden"
         animate="visible"
-        style={{ maxWidth: 1050, margin: "0 auto", padding: 24 }}
+        style={{ maxWidth: 1050, margin: "0 auto", padding: isMobile ? 14 : 24 }}
       >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "290px 1fr",
+            gridTemplateColumns: isMobile ? "1fr" : "290px 1fr",
             gap: 20,
           }}
         >
-          {/* SIDEBAR */}
           <motion.div
             variants={sidebarVariants}
             style={{
@@ -229,22 +236,20 @@ export default function EditClientPage() {
             </div>
           </motion.div>
 
-          {/* CONTENT */}
           <div style={{ display: "grid", gap: 20 }}>
             <motion.div variants={itemVariants} style={panelStyle}>
-              <div style={{ fontSize: 14, opacity: 0.85, color: COLORS.text }}>Edición</div>
+              <div style={{ fontSize: 14, opacity: 0.85 }}>Edición</div>
               <div
                 style={{
                   fontSize: 30,
                   fontWeight: 900,
                   marginTop: 6,
                   lineHeight: 1.1,
-                  color: COLORS.text,
                 }}
               >
                 Editar cliente
               </div>
-              <div style={{ marginTop: 10, color: COLORS.text }}>
+              <div style={{ marginTop: 10 }}>
                 Actualiza la información del cliente para mantener tus datos al día.
               </div>
             </motion.div>
@@ -271,7 +276,7 @@ export default function EditClientPage() {
             </AnimatePresence>
 
             <motion.div variants={itemVariants} style={panelStyle}>
-              <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 14, color: COLORS.text }}>
+              <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 14 }}>
                 Datos del cliente
               </div>
 
@@ -321,10 +326,21 @@ export default function EditClientPage() {
                   />
                 </label>
 
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    flexWrap: "wrap",
+                    marginTop: 6,
+                    flexDirection: isMobile ? "column" : "row",
+                  }}
+                >
                   <motion.button
                     onClick={save}
-                    style={primaryInlineButtonStyle}
+                    style={{
+                      ...primaryInlineButtonStyle,
+                      width: isMobile ? "100%" : undefined,
+                    }}
                     disabled={saving}
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
@@ -332,9 +348,18 @@ export default function EditClientPage() {
                     {saving ? "Guardando..." : "Guardar cambios"}
                   </motion.button>
 
-                  <Link href="/clients">
+                  <Link
+                    href="/clients"
+                    style={{
+                      textDecoration: "none",
+                      width: isMobile ? "100%" : undefined,
+                    }}
+                  >
                     <motion.button
-                      style={secondaryButtonStyle}
+                      style={{
+                        ...secondaryButtonStyle,
+                        width: isMobile ? "100%" : undefined,
+                      }}
                       disabled={saving}
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
