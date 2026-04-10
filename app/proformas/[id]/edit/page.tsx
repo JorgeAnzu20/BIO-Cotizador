@@ -949,7 +949,7 @@ export default function EditProformaPage() {
                 </label>
 
                 <label style={labelStyle}>
-                  Vendedor
+                  Cuidad
                   <input
                     value={newClientAddress}
                     onChange={(e) => setNewClientAddress(e.target.value)}
