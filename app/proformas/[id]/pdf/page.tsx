@@ -271,14 +271,13 @@ export default async function ProformaPdfPage({
 
         .footer-wrap {
           position: absolute;
-          left: 0.28cm;
-          right: 0.28cm;
-          bottom: 0.18cm;
+          left: 0;
+          bottom: 0;
         }
 
         .footer {
-          width: 100%;
-          height: 3.2cm;
+          width: 21cm;
+          height: 4cm;
           overflow: hidden;
           background: #fff;
           display: flex;
