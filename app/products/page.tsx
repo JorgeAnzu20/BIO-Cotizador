@@ -90,21 +90,33 @@ export default function ProductsPage() {
       return;
     }
 
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .maybeSingle();
+
+    if (profileErr) {
+      setMsg(profileErr.message);
+      setLoading(false);
+      return;
+    }
 
     if ((profile?.role ?? "") !== "admin") {
       router.push("/");
       return;
     }
 
-    const { data: rows } = await supabase
+    const { data: rows, error } = await supabase
       .from("products")
       .select("id, name, code, description, features, price, iva, pdf_path")
       .order("id", { ascending: false });
+
+    if (error) {
+      setMsg(error.message);
+      setLoading(false);
+      return;
+    }
 
     setProducts((rows ?? []) as Product[]);
     setLoading(false);
@@ -127,37 +139,68 @@ export default function ProductsPage() {
   }, [products, q]);
 
   async function viewPdf(p: Product) {
+    setMsg("");
+
     if (!p.pdf_path) {
       setMsg("Este producto no tiene PDF.");
       return;
     }
 
-    const { data } = await supabase.storage
+    const { data, error } = await supabase.storage
       .from("product-pdfs")
       .createSignedUrl(p.pdf_path, 60 * 10);
 
-    if (data?.signedUrl) {
-      window.open(data.signedUrl, "_blank");
+    if (error) {
+      setMsg("Error generando enlace del PDF: " + error.message);
+      return;
     }
+
+    if (!data?.signedUrl) {
+      setMsg("No pude generar el enlace del PDF.");
+      return;
+    }
+
+    window.open(data.signedUrl, "_blank");
   }
 
   async function deleteProduct(p: Product) {
+    setMsg("");
     const ok = confirm(`¿Eliminar el producto "${p.name}"?`);
     if (!ok) return;
 
-    await supabase.from("products").delete().eq("id", p.id);
+    const { error: delErr } = await supabase
+      .from("products")
+      .delete()
+      .eq("id", p.id);
+
+    if (delErr) {
+      setMsg("No se pudo eliminar: " + delErr.message);
+      return;
+    }
 
     if (p.pdf_path) {
       await supabase.storage.from("product-pdfs").remove([p.pdf_path]);
     }
 
+    setMsg("✅ Producto eliminado");
     await load();
   }
 
   if (loading) {
     return (
       <PageShell>
-        <div style={{ textAlign: "center", padding: 40 }}>Cargando...</div>
+        <div
+          style={{
+            minHeight: "100vh",
+            color: COLORS.text,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "Inter, Arial, sans-serif",
+          }}
+        >
+          Cargando...
+        </div>
       </PageShell>
     );
   }
@@ -177,48 +220,277 @@ export default function ProductsPage() {
             gap: 20,
           }}
         >
-          <motion.div variants={sidebarVariants} style={panelStyle}>
-            <div style={{ fontSize: 24, fontWeight: 900 }}>Productos</div>
+          <motion.div
+            variants={sidebarVariants}
+            style={{
+              background: COLORS.blue,
+              border: `2px solid ${COLORS.cyan}`,
+              borderRadius: 24,
+              padding: 20,
+              height: "fit-content",
+              boxShadow: "0 20px 50px rgba(0,0,0,0.18)",
+              color: COLORS.text,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 24,
+                fontWeight: 900,
+                marginBottom: 6,
+                color: COLORS.bone,
+              }}
+            >
+              Productos
+            </div>
 
-            <Link href="/">
-              <button style={navButtonStyle}>← Volver</button>
-            </Link>
+            <div style={{ fontSize: 14, marginBottom: 18, opacity: 0.9 }}>
+              Gestiona tu catálogo
+            </div>
 
-            <Link href="/products/new">
-              <button style={primaryButtonStyle}>+ Nuevo</button>
-            </Link>
+            <div style={{ display: "grid", gap: 10 }}>
+              <Link href="/" style={{ textDecoration: "none" }}>
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  style={navButtonStyle}
+                >
+                  ← Volver al inicio
+                </motion.button>
+              </Link>
+
+              <Link href="/products/new" style={{ textDecoration: "none" }}>
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  style={primaryButtonStyle}
+                >
+                  + Nuevo producto
+                </motion.button>
+              </Link>
+
+              <motion.button
+                onClick={load}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                style={navButtonStyle}
+              >
+                Recargar
+              </motion.button>
+            </div>
           </motion.div>
 
-          <div style={{ display: "grid", gap: 20 }}>
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar..."
-              style={inputStyle}
-            />
+          <div style={{ display: "grid", gap: 20, minWidth: 0 }}>
+            <motion.div variants={itemVariants} style={panelStyle}>
+              <div style={{ fontSize: 14, opacity: 0.85, color: COLORS.text }}>Módulo</div>
+              <div
+                style={{
+                  fontSize: 30,
+                  fontWeight: 900,
+                  marginTop: 6,
+                  lineHeight: 1.1,
+                  color: COLORS.text,
+                }}
+              >
+                Productos
+              </div>
+              <div style={{ marginTop: 10, color: COLORS.text }}>
+                Consulta, busca, edita y administra los productos de tu sistema.
+              </div>
+            </motion.div>
 
-            <div style={{ display: "grid", gap: 12 }}>
-              {filtered.map((p) => (
-                <div key={p.id} style={panelStyle}>
-                  <div style={{ fontWeight: 900 }}>{p.name}</div>
-                  <div>${p.price}</div>
+            <AnimatePresence>
+              {msg && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.18 }}
+                  style={{
+                    background: "#FEE2E2",
+                    border: "1px solid #FCA5A5",
+                    color: "#991B1B",
+                    borderRadius: 16,
+                    padding: 14,
+                    fontWeight: 600,
+                  }}
+                >
+                  {msg}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                    <Link href={`/products/${p.id}/edit`}>
-                      <button style={actionButtonStyle}>Editar</button>
-                    </Link>
+            <motion.div
+              variants={itemVariants}
+              style={{
+                display: "grid",
+                gridTemplateColumns: isMobile
+                  ? "1fr"
+                  : "repeat(2, minmax(0, 1fr))",
+                gap: 16,
+              }}
+            >
+              <MetricCard title="Productos totales" value={String(products.length)} />
+              <MetricCard title="Resultados filtrados" value={String(filtered.length)} />
+            </motion.div>
 
-                    <button onClick={() => deleteProduct(p)} style={dangerButtonStyle}>
-                      Eliminar
-                    </button>
+            <motion.div variants={itemVariants} style={panelStyle}>
+              <div
+                style={{
+                  fontSize: 18,
+                  fontWeight: 800,
+                  marginBottom: 14,
+                  color: COLORS.text,
+                }}
+              >
+                Buscar productos
+              </div>
 
-                    <button onClick={() => viewPdf(p)} style={actionButtonStyle}>
-                      PDF
-                    </button>
-                  </div>
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Buscar por nombre, código o descripción..."
+                style={{
+                  ...inputStyle,
+                  maxWidth: isMobile ? "100%" : 420,
+                }}
+              />
+            </motion.div>
+
+            <motion.div variants={itemVariants} style={panelStyle}>
+              <div
+                style={{
+                  fontSize: 18,
+                  fontWeight: 800,
+                  marginBottom: 14,
+                  color: COLORS.text,
+                }}
+              >
+                Listado de productos
+              </div>
+
+              {filtered.length === 0 ? (
+                <div style={{ color: COLORS.text }}>No hay productos.</div>
+              ) : (
+                <div style={{ display: "grid", gap: 12 }}>
+                  <AnimatePresence initial={false}>
+                    {filtered.map((p, index) => (
+                      <motion.div
+                        key={p.id}
+                        initial={{ opacity: 0, y: 18 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10, transition: { duration: 0.18 } }}
+                        transition={{ duration: 0.35, delay: index * 0.05 }}
+                        whileHover={{ y: -3, scale: 1.005 }}
+                        style={{
+                          borderRadius: 22,
+                          padding: 16,
+                          background: COLORS.bone,
+                          border: "1px solid #D6D6D0",
+                          boxShadow: "0 8px 20px rgba(0,0,0,0.05)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 12,
+                            flexWrap: "wrap",
+                            flexDirection: isMobile ? "column" : "row",
+                          }}
+                        >
+                          <div style={{ minWidth: isMobile ? "100%" : 260 }}>
+                            <div
+                              style={{
+                                fontWeight: 900,
+                                fontSize: 20,
+                                color: COLORS.text,
+                                wordBreak: "break-word",
+                              }}
+                            >
+                              {p.name}
+                            </div>
+
+                            <div style={{ marginTop: 8, color: COLORS.text, wordBreak: "break-word" }}>
+                              <b>Código:</b> {p.code ?? "-"}
+                            </div>
+
+                            {p.description ? (
+                              <div style={{ marginTop: 6, color: COLORS.text, wordBreak: "break-word" }}>
+                                <b>Descripción:</b> {p.description}
+                              </div>
+                            ) : null}
+
+                            {p.features ? (
+                              <div style={{ marginTop: 6, color: COLORS.text }}>
+                                <b>Características:</b>
+                                <div style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>
+                                  {p.features}
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+
+                          <div style={{ textAlign: isMobile ? "left" : "right" }}>
+                            <div
+                              style={{
+                                fontWeight: 900,
+                                fontSize: 24,
+                                color: COLORS.text,
+                              }}
+                            >
+                              ${Number(p.price).toFixed(2)}
+                            </div>
+                            <div style={{ marginTop: 6, color: COLORS.text }}>
+                              {p.iva ? "Con IVA" : "Sin IVA"}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 8,
+                            flexWrap: "wrap",
+                            marginTop: 14,
+                          }}
+                        >
+                          <Link href={`/products/${p.id}/edit`}>
+                            <motion.button
+                              whileHover={{ scale: 1.03 }}
+                              whileTap={{ scale: 0.97 }}
+                              style={actionButtonStyle}
+                            >
+                              Editar
+                            </motion.button>
+                          </Link>
+
+                          <motion.button
+                            type="button"
+                            onClick={() => deleteProduct(p)}
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.97 }}
+                            style={dangerButtonStyle}
+                          >
+                            Eliminar
+                          </motion.button>
+
+                          <motion.button
+                            type="button"
+                            onClick={() => viewPdf(p)}
+                            disabled={!p.pdf_path}
+                            whileHover={p.pdf_path ? { scale: 1.03 } : undefined}
+                            whileTap={p.pdf_path ? { scale: 0.97 } : undefined}
+                            style={actionButtonStyle}
+                          >
+                            {p.pdf_path ? "Ver PDF" : "Sin PDF"}
+                          </motion.button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
                 </div>
-              ))}
-            </div>
+              )}
+            </motion.div>
           </div>
         </div>
       </motion.div>
@@ -226,34 +498,98 @@ export default function ProductsPage() {
   );
 }
 
+function MetricCard({ title, value }: { title: string; value: string }) {
+  return (
+    <motion.div
+      variants={itemVariants}
+      whileHover={{ y: -4, scale: 1.01 }}
+      transition={{ duration: 0.2 }}
+      style={{
+        background: COLORS.bone,
+        border: `1px solid ${COLORS.grayBorder}`,
+        borderRadius: 22,
+        padding: 18,
+        boxShadow: "0 8px 20px rgba(0,0,0,0.06)",
+        color: COLORS.text,
+      }}
+    >
+      <div style={{ fontSize: 14, color: COLORS.text }}>{title}</div>
+      <div
+        style={{
+          marginTop: 10,
+          fontSize: 28,
+          fontWeight: 900,
+          lineHeight: 1,
+          color: COLORS.text,
+        }}
+      >
+        {value}
+      </div>
+    </motion.div>
+  );
+}
+
 const panelStyle: React.CSSProperties = {
   background: COLORS.bone,
-  padding: 16,
-  borderRadius: 16,
+  border: `1px solid ${COLORS.grayBorder}`,
+  borderRadius: 24,
+  padding: 20,
+  boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
+  color: COLORS.text,
 };
 
 const inputStyle: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 420,
   padding: 12,
-  borderRadius: 12,
-  border: "1px solid #ccc",
+  borderRadius: 14,
+  border: `1px solid ${COLORS.grayBorder}`,
+  background: COLORS.white,
+  color: COLORS.text,
+  outline: "none",
+  boxSizing: "border-box",
 };
 
 const navButtonStyle: React.CSSProperties = {
-  marginTop: 10,
-  padding: 10,
+  width: "100%",
+  border: `1px solid ${COLORS.grayBorder}`,
+  background: COLORS.bone,
+  color: COLORS.text,
+  padding: "12px 14px",
+  borderRadius: 14,
+  fontWeight: 700,
+  cursor: "pointer",
+  textAlign: "left",
 };
 
 const primaryButtonStyle: React.CSSProperties = {
-  marginTop: 10,
-  padding: 10,
+  width: "100%",
+  border: "none",
+  background: COLORS.cyan,
+  color: COLORS.text,
+  padding: "12px 14px",
+  borderRadius: 14,
+  fontWeight: 800,
+  cursor: "pointer",
+  textAlign: "left",
 };
 
 const actionButtonStyle: React.CSSProperties = {
-  padding: 8,
+  border: `1px solid ${COLORS.grayBorder}`,
+  background: COLORS.white,
+  color: COLORS.text,
+  padding: "10px 14px",
+  borderRadius: 12,
+  fontWeight: 700,
+  cursor: "pointer",
 };
 
 const dangerButtonStyle: React.CSSProperties = {
-  padding: 8,
-  background: "red",
-  color: "white",
+  border: "none",
+  background: COLORS.danger,
+  color: COLORS.white,
+  padding: "10px 14px",
+  borderRadius: 12,
+  fontWeight: 700,
+  cursor: "pointer",
 };
