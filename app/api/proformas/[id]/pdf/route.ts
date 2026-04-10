@@ -119,10 +119,10 @@ export async function GET(
 
     const pdfPageUrl = `${baseUrl}/proformas/${id}/pdf`;
 
-    await page.goto(pdfPageUrl, {
-      waitUntil: "networkidle0",
-      timeout: 120000,
-    });
+    await page.goto(`${baseUrl}/proformas/${id}/pdf`, {
+  waitUntil: "domcontentloaded",
+      timeout: 60000,
+});
 
     const mainPdf = await page.pdf({
       format: "A4",
