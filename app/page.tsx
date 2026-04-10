@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -92,11 +92,23 @@ export default function HomePage() {
   const [userId, setUserId] = useState("");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [msg, setMsg] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
 
   const [proformas, setProformas] = useState<ProformaRow[]>([]);
   const [clientsCount, setClientsCount] = useState(0);
   const [productsCount, setProductsCount] = useState(0);
   const [branchesCount, setBranchesCount] = useState(0);
+
+  useEffect(() => {
+    function handleResize() {
+      setIsMobile(window.innerWidth < 768);
+    }
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -193,6 +205,7 @@ export default function HomePage() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            padding: 16,
           }}
         >
           Cargando...
@@ -207,13 +220,20 @@ export default function HomePage() {
         variants={pageVariants}
         initial="hidden"
         animate="visible"
-        style={{ maxWidth: 1250, margin: "0 auto", padding: 24 }}
+        style={{
+          maxWidth: 1250,
+          margin: "0 auto",
+          padding: isMobile ? 14 : 24,
+          width: "100%",
+          boxSizing: "border-box",
+        }}
       >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "290px 1fr",
+            gridTemplateColumns: isMobile ? "1fr" : "290px 1fr",
             gap: 20,
+            alignItems: "start",
           }}
         >
           <motion.div
@@ -222,18 +242,21 @@ export default function HomePage() {
               background: COLORS.blue,
               border: `2px solid ${COLORS.cyan}`,
               borderRadius: 24,
-              padding: 20,
+              padding: isMobile ? 16 : 20,
               height: "fit-content",
               boxShadow: "0 20px 50px rgba(0,0,0,0.18)",
               color: COLORS.text,
+              width: "100%",
+              boxSizing: "border-box",
             }}
           >
             <div
               style={{
-                fontSize: 24,
+                fontSize: isMobile ? 22 : 24,
                 fontWeight: 900,
                 marginBottom: 6,
                 color: COLORS.bone,
+                lineHeight: 1.1,
               }}
             >
               Cotizaciones
@@ -255,7 +278,7 @@ export default function HomePage() {
               }}
             >
               <div style={{ fontSize: 13, opacity: 0.8 }}>Usuario</div>
-              <div style={{ fontWeight: 800, marginTop: 4 }}>
+              <div style={{ fontWeight: 800, marginTop: 4, wordBreak: "break-word" }}>
                 {profile?.full_name || email || "-"}
               </div>
               <div style={{ marginTop: 8, fontSize: 13 }}>
@@ -265,19 +288,31 @@ export default function HomePage() {
 
             <div style={{ display: "grid", gap: 10 }}>
               <Link href="/clients" style={{ textDecoration: "none" }}>
-                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={sideButtonStyle}>
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  style={sideButtonStyle}
+                >
                   Clientes
                 </motion.button>
               </Link>
 
               <Link href="/proformas" style={{ textDecoration: "none" }}>
-                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={sideButtonStyle}>
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  style={sideButtonStyle}
+                >
                   Proformas
                 </motion.button>
               </Link>
 
               <Link href="/admin/vendors-report" style={{ textDecoration: "none" }}>
-                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={sideButtonStyle}>
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  style={sideButtonStyle}
+                >
                   {role === "admin" ? "Reporte de ventas" : "Reportes"}
                 </motion.button>
               </Link>
@@ -285,25 +320,41 @@ export default function HomePage() {
               {role === "admin" && (
                 <>
                   <Link href="/products" style={{ textDecoration: "none" }}>
-                    <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={sideButtonStyle}>
+                    <motion.button
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      style={sideButtonStyle}
+                    >
                       Productos
                     </motion.button>
                   </Link>
 
                   <Link href="/branches" style={{ textDecoration: "none" }}>
-                    <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={sideButtonStyle}>
+                    <motion.button
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      style={sideButtonStyle}
+                    >
                       Sucursales
                     </motion.button>
                   </Link>
 
                   <Link href="/admin/users" style={{ textDecoration: "none" }}>
-                    <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={sideButtonStyle}>
+                    <motion.button
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      style={sideButtonStyle}
+                    >
                       Usuarios
                     </motion.button>
                   </Link>
 
                   <Link href="/admin/proforma-assets" style={{ textDecoration: "none" }}>
-                    <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={sideButtonStyle}>
+                    <motion.button
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      style={sideButtonStyle}
+                    >
                       Plantillas
                     </motion.button>
                   </Link>
@@ -333,16 +384,23 @@ export default function HomePage() {
             </div>
           </motion.div>
 
-          <div style={{ display: "grid", gap: 20 }}>
-            <motion.div variants={itemVariants} style={bonePanel}>
+          <div style={{ display: "grid", gap: 20, minWidth: 0 }}>
+            <motion.div
+              variants={itemVariants}
+              style={{
+                ...bonePanel,
+                padding: isMobile ? 16 : 22,
+              }}
+            >
               <div style={{ fontSize: 14, opacity: 0.9, color: COLORS.text }}>Bienvenido</div>
               <div
                 style={{
-                  fontSize: 30,
+                  fontSize: isMobile ? 24 : 30,
                   fontWeight: 900,
                   marginTop: 6,
                   lineHeight: 1.1,
                   color: COLORS.text,
+                  wordBreak: "break-word",
                 }}
               >
                 {profile?.full_name || "Panel principal"}
@@ -361,6 +419,7 @@ export default function HomePage() {
                   borderRadius: 16,
                   padding: 14,
                   fontWeight: 700,
+                  wordBreak: "break-word",
                 }}
               >
                 {msg}
@@ -371,25 +430,39 @@ export default function HomePage() {
               variants={itemVariants}
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                gridTemplateColumns: isMobile
+                  ? "1fr"
+                  : "repeat(4, minmax(0, 1fr))",
                 gap: 16,
               }}
             >
-              <MetricCard title="Ventas de hoy" value={`$${money(totalHoy)}`} />
-              <MetricCard title="Ventas del mes" value={`$${money(totalMes)}`} />
-              <MetricCard title="Ventas confirmadas" value={String(totalConfirmadas)} />
-              <MetricCard title="Total proformas" value={String(proformas.length)} />
+              <MetricCard title="Ventas de hoy" value={`$${money(totalHoy)}`} isMobile={isMobile} />
+              <MetricCard title="Ventas del mes" value={`$${money(totalMes)}`} isMobile={isMobile} />
+              <MetricCard title="Ventas confirmadas" value={String(totalConfirmadas)} isMobile={isMobile} />
+              <MetricCard title="Total proformas" value={String(proformas.length)} isMobile={isMobile} />
             </motion.div>
 
             <motion.div
               variants={itemVariants}
               style={{
                 display: "grid",
-                gridTemplateColumns: role === "admin" ? "1.2fr 0.8fr" : "1fr",
+                gridTemplateColumns: isMobile
+                  ? "1fr"
+                  : role === "admin"
+                  ? "1.2fr 0.8fr"
+                  : "1fr",
                 gap: 20,
+                minWidth: 0,
               }}
             >
-              <motion.div variants={itemVariants} style={bonePanel}>
+              <motion.div
+                variants={itemVariants}
+                style={{
+                  ...bonePanel,
+                  padding: isMobile ? 16 : 22,
+                  minWidth: 0,
+                }}
+              >
                 <div
                   style={{
                     fontSize: 18,
@@ -414,9 +487,10 @@ export default function HomePage() {
                         whileHover={{ y: -3, scale: 1.01 }}
                         style={{
                           display: "flex",
+                          flexDirection: isMobile ? "column" : "row",
                           justifyContent: "space-between",
                           gap: 12,
-                          alignItems: "center",
+                          alignItems: isMobile ? "flex-start" : "center",
                           padding: 14,
                           borderRadius: 18,
                           background: COLORS.bone,
@@ -432,7 +506,12 @@ export default function HomePage() {
                           </div>
                         </div>
 
-                        <div style={{ textAlign: "right" }}>
+                        <div
+                          style={{
+                            textAlign: isMobile ? "left" : "right",
+                            width: isMobile ? "100%" : "auto",
+                          }}
+                        >
                           <div style={{ fontWeight: 900 }}>${money(p.total)}</div>
                           <div
                             style={{
@@ -453,14 +532,20 @@ export default function HomePage() {
 
               {role === "admin" && (
                 <div style={{ display: "grid", gap: 16 }}>
-                  <SmallCard title="Clientes registrados" value={String(clientsCount)} />
-                  <SmallCard title="Productos activos" value={String(productsCount)} />
-                  <SmallCard title="Sucursales" value={String(branchesCount)} />
+                  <SmallCard title="Clientes registrados" value={String(clientsCount)} isMobile={isMobile} />
+                  <SmallCard title="Productos activos" value={String(productsCount)} isMobile={isMobile} />
+                  <SmallCard title="Sucursales" value={String(branchesCount)} isMobile={isMobile} />
                 </div>
               )}
             </motion.div>
 
-            <motion.div variants={itemVariants} style={bonePanel}>
+            <motion.div
+              variants={itemVariants}
+              style={{
+                ...bonePanel,
+                padding: isMobile ? 16 : 22,
+              }}
+            >
               <div
                 style={{
                   fontSize: 18,
@@ -475,7 +560,11 @@ export default function HomePage() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: role === "admin" ? "repeat(4, 1fr)" : "repeat(2, 1fr)",
+                  gridTemplateColumns: isMobile
+                    ? "1fr"
+                    : role === "admin"
+                    ? "repeat(4, 1fr)"
+                    : "repeat(2, 1fr)",
                   gap: 14,
                 }}
               >
@@ -515,7 +604,15 @@ export default function HomePage() {
   );
 }
 
-function MetricCard({ title, value }: { title: string; value: string }) {
+function MetricCard({
+  title,
+  value,
+  isMobile,
+}: {
+  title: string;
+  value: string;
+  isMobile: boolean;
+}) {
   return (
     <motion.div
       variants={itemVariants}
@@ -525,7 +622,7 @@ function MetricCard({ title, value }: { title: string; value: string }) {
         background: COLORS.bone,
         border: `1px solid ${COLORS.grayBorder}`,
         borderRadius: 22,
-        padding: 18,
+        padding: isMobile ? 16 : 18,
         boxShadow: "0 8px 20px rgba(0,0,0,0.06)",
         color: COLORS.text,
       }}
@@ -534,10 +631,11 @@ function MetricCard({ title, value }: { title: string; value: string }) {
       <div
         style={{
           marginTop: 10,
-          fontSize: 28,
+          fontSize: isMobile ? 24 : 28,
           fontWeight: 900,
           lineHeight: 1,
           color: COLORS.text,
+          wordBreak: "break-word",
         }}
       >
         {value}
@@ -546,7 +644,15 @@ function MetricCard({ title, value }: { title: string; value: string }) {
   );
 }
 
-function SmallCard({ title, value }: { title: string; value: string }) {
+function SmallCard({
+  title,
+  value,
+  isMobile,
+}: {
+  title: string;
+  value: string;
+  isMobile: boolean;
+}) {
   return (
     <motion.div
       variants={itemVariants}
@@ -556,7 +662,7 @@ function SmallCard({ title, value }: { title: string; value: string }) {
         background: COLORS.bone,
         border: `1px solid ${COLORS.grayBorder}`,
         borderRadius: 22,
-        padding: 18,
+        padding: isMobile ? 16 : 18,
         boxShadow: "0 8px 20px rgba(0,0,0,0.06)",
         color: COLORS.text,
       }}
@@ -565,10 +671,11 @@ function SmallCard({ title, value }: { title: string; value: string }) {
       <div
         style={{
           marginTop: 10,
-          fontSize: 26,
+          fontSize: isMobile ? 22 : 26,
           fontWeight: 900,
           lineHeight: 1,
           color: COLORS.text,
+          wordBreak: "break-word",
         }}
       >
         {value}
@@ -607,14 +714,18 @@ function QuickLink({
           boxShadow: "0 8px 20px rgba(0,0,0,0.06)",
         }}
       >
-        <div style={{ fontWeight: 900, fontSize: 16 }}>{title}</div>
-        <div style={{ marginTop: 6, fontSize: 13 }}>{subtitle}</div>
+        <div style={{ fontWeight: 900, fontSize: 16, wordBreak: "break-word" }}>
+          {title}
+        </div>
+        <div style={{ marginTop: 6, fontSize: 13, wordBreak: "break-word" }}>
+          {subtitle}
+        </div>
       </motion.div>
     </Link>
   );
 }
 
-const bonePanel: React.CSSProperties = {
+const bonePanel: CSSProperties = {
   background: "#F5F5F0",
   border: `1px solid ${COLORS.grayBorder}`,
   borderRadius: 24,
@@ -623,7 +734,7 @@ const bonePanel: React.CSSProperties = {
   color: COLORS.text,
 };
 
-const sideButtonStyle: React.CSSProperties = {
+const sideButtonStyle: CSSProperties = {
   width: "100%",
   border: `1px solid ${COLORS.grayBorder}`,
   background: COLORS.bone,
