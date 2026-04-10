@@ -1026,7 +1026,7 @@ export default function NewProformaPage() {
                 </label>
 
                 <label style={labelStyle}>
-                  Vendedor
+                  Ciudad
                   <input
                     value={newClientAddress}
                     onChange={(e) => setNewClientAddress(e.target.value)}
