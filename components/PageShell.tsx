@@ -20,32 +20,18 @@ export default function PageShell({ children }: PageShellProps) {
         color: COLORS.text,
         fontFamily: "Inter, Arial, sans-serif",
         position: "relative",
+
+        // 🔥 CLAVE PARA MOBILE
         overflowX: "hidden",
-        overflowY: "auto",
         width: "100%",
       }}
     >
-      <img
-        src="/logo.png"
-        alt="logo"
-        style={{
-          position: "fixed",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: "min(70vw, 1400px)",
-          height: "auto",
-          opacity: 0.08,
-          pointerEvents: "none",
-          userSelect: "none",
-          zIndex: 0,
-        }}
-      />
-
       <div
         style={{
           position: "relative",
           zIndex: 1,
+
+          // 🔥 IMPORTANTE
           width: "100%",
           minWidth: 0,
         }}
