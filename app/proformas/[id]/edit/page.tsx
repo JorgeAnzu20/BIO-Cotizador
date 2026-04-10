@@ -154,6 +154,8 @@ export default function EditProformaPage() {
   const [newClientEmail, setNewClientEmail] = useState("");
   const [newClientAddress, setNewClientAddress] = useState("");
 
+  const [isMobile, setIsMobile] = useState(false);
+
   const totals = useMemo(() => {
     const subtotal = items.reduce(
       (acc, it) => acc + (Number(it.qty) * Number(it.unit_price) || 0),
@@ -176,6 +178,13 @@ export default function EditProformaPage() {
       total,
     };
   }, [items, ivaRate]);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   async function loadClients() {
     const { data } = await supabase
@@ -487,12 +496,12 @@ export default function EditProformaPage() {
         variants={pageVariants}
         initial="hidden"
         animate="visible"
-        style={{ maxWidth: 1300, margin: "0 auto", padding: 24 }}
+        style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? 14 : 24 }}
       >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "290px 1fr",
+            gridTemplateColumns: isMobile ? "1fr" : "290px 1fr",
             gap: 20,
           }}
         >
@@ -546,7 +555,7 @@ export default function EditProformaPage() {
             </div>
           </motion.div>
 
-          <div style={{ display: "grid", gap: 20 }}>
+          <div style={{ display: "grid", gap: 20, minWidth: 0 }}>
             <motion.div variants={itemVariants} style={panelStyle}>
               <div style={{ fontSize: 14, opacity: 0.85 }}>Edición</div>
               <div style={{ fontSize: 30, fontWeight: 900, marginTop: 6 }}>
@@ -582,7 +591,9 @@ export default function EditProformaPage() {
               variants={itemVariants}
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                gridTemplateColumns: isMobile
+                  ? "1fr"
+                  : "repeat(3, minmax(0, 1fr))",
                 gap: 16,
               }}
             >
@@ -604,12 +615,17 @@ export default function EditProformaPage() {
                       alignItems: "center",
                       flexWrap: "wrap",
                       marginTop: 6,
+                      flexDirection: isMobile ? "column" : "row",
                     }}
                   >
                     <select
                       value={clientId ?? ""}
                       onChange={(e) => setClientId(Number(e.target.value))}
-                      style={{ ...selectStyle, minWidth: 360 }}
+                      style={{
+                        ...selectStyle,
+                        minWidth: isMobile ? "100%" : 360,
+                        width: isMobile ? "100%" : undefined,
+                      }}
                     >
                       <option value="" disabled>
                         Selecciona...
@@ -627,7 +643,10 @@ export default function EditProformaPage() {
                         setClientMsg("");
                         setShowClientModal(true);
                       }}
-                      style={primaryInlineButtonStyle}
+                      style={{
+                        ...primaryInlineButtonStyle,
+                        width: isMobile ? "100%" : undefined,
+                      }}
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
                     >
@@ -700,7 +719,7 @@ export default function EditProformaPage() {
                         <div
                           style={{
                             display: "grid",
-                            gridTemplateColumns: "1fr 1fr 1fr auto",
+                            gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr auto",
                             gap: 12,
                             alignItems: "center",
                           }}
@@ -741,6 +760,7 @@ export default function EditProformaPage() {
                               gap: 8,
                               alignItems: "center",
                               color: COLORS.text,
+                              minHeight: 48,
                             }}
                           >
                             <input
@@ -761,7 +781,10 @@ export default function EditProformaPage() {
                             <motion.button
                               type="button"
                               onClick={() => removeRow(i)}
-                              style={dangerButtonStyle}
+                              style={{
+                                ...dangerButtonStyle,
+                                width: isMobile ? "100%" : undefined,
+                              }}
                               whileHover={{ scale: 1.03 }}
                               whileTap={{ scale: 0.97 }}
                             >
@@ -863,7 +886,7 @@ export default function EditProformaPage() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              padding: 20,
+              padding: isMobile ? 14 : 20,
               zIndex: 9999,
             }}
           >
@@ -880,8 +903,10 @@ export default function EditProformaPage() {
                 color: COLORS.text,
                 border: `1px solid ${COLORS.grayBorder}`,
                 borderRadius: 20,
-                padding: 20,
+                padding: isMobile ? 16 : 20,
                 boxShadow: "0 20px 50px rgba(0,0,0,0.20)",
+                maxHeight: "90vh",
+                overflowY: "auto",
               }}
             >
               <h2 style={{ marginTop: 0, color: COLORS.text }}>Nuevo cliente</h2>
@@ -955,11 +980,21 @@ export default function EditProformaPage() {
                 )}
               </AnimatePresence>
 
-              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  marginTop: 16,
+                  flexDirection: isMobile ? "column" : "row",
+                }}
+              >
                 <motion.button
                   onClick={saveNewClient}
                   disabled={savingClient}
-                  style={primaryInlineButtonStyle}
+                  style={{
+                    ...primaryInlineButtonStyle,
+                    width: isMobile ? "100%" : undefined,
+                  }}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                 >
@@ -969,7 +1004,10 @@ export default function EditProformaPage() {
                 <motion.button
                   onClick={() => setShowClientModal(false)}
                   disabled={savingClient}
-                  style={secondaryButtonStyle}
+                  style={{
+                    ...secondaryButtonStyle,
+                    width: isMobile ? "100%" : undefined,
+                  }}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                 >
@@ -1013,6 +1051,7 @@ function MetricCard({
           fontWeight: 900,
           lineHeight: 1.1,
           color: COLORS.text,
+          wordBreak: "break-word",
         }}
       >
         {value}
@@ -1132,4 +1171,5 @@ const labelStyle: React.CSSProperties = {
   display: "block",
   fontSize: 14,
   color: COLORS.text,
+  width: "100%",
 };
