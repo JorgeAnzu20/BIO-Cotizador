@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -55,12 +55,20 @@ export default function NewClientPage() {
 
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const [fullName, setFullName] = useState("");
   const [document, setDocument] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   async function save() {
     setMsg("");
@@ -115,16 +123,15 @@ export default function NewClientPage() {
     >
       <motion.div
         variants={itemVariants}
-        style={{ maxWidth: 1050, margin: "0 auto", padding: 24 }}
+        style={{ maxWidth: 1050, margin: "0 auto", padding: isMobile ? 14 : 24 }}
       >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "290px 1fr",
+            gridTemplateColumns: isMobile ? "1fr" : "290px 1fr",
             gap: 20,
           }}
         >
-          {/* SIDEBAR */}
           <motion.div
             variants={sidebarVariants}
             style={{
@@ -175,8 +182,7 @@ export default function NewClientPage() {
             </div>
           </motion.div>
 
-          {/* CONTENT */}
-          <div style={{ display: "grid", gap: 20 }}>
+          <div style={{ display: "grid", gap: 20, minWidth: 0 }}>
             <motion.div variants={itemVariants} style={panelStyle}>
               <div style={{ fontSize: 14, opacity: 0.85 }}>Nuevo registro</div>
               <div
@@ -266,10 +272,21 @@ export default function NewClientPage() {
                   />
                 </label>
 
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    flexWrap: "wrap",
+                    marginTop: 6,
+                    flexDirection: isMobile ? "column" : "row",
+                  }}
+                >
                   <motion.button
                     onClick={save}
-                    style={primaryInlineButtonStyle}
+                    style={{
+                      ...primaryInlineButtonStyle,
+                      width: isMobile ? "100%" : undefined,
+                    }}
                     disabled={saving}
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
@@ -277,9 +294,18 @@ export default function NewClientPage() {
                     {saving ? "Guardando..." : "Guardar cliente"}
                   </motion.button>
 
-                  <Link href="/clients">
+                  <Link
+                    href="/clients"
+                    style={{
+                      textDecoration: "none",
+                      width: isMobile ? "100%" : undefined,
+                    }}
+                  >
                     <motion.button
-                      style={secondaryButtonStyle}
+                      style={{
+                        ...secondaryButtonStyle,
+                        width: isMobile ? "100%" : undefined,
+                      }}
                       disabled={saving}
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
