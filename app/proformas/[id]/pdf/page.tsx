@@ -1,1116 +1,508 @@
-"use client";
+import { createClient } from "@supabase/supabase-js";
 
-import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import PageShell from "@/components/PageShell";
-import { motion, AnimatePresence } from "framer-motion";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-type Client = {
+type Proforma = {
   id: number;
-  full_name: string;
-  document: string | null;
-};
+  number: number;
+  iva_rate: number;
+  subtotal: number;
+  iva: number;
+  total: number;
+  created_at: string;
 
-type Product = {
-  id: number;
-  name: string;
-  price: number;
-  iva: boolean;
+  validez_oferta: string | null;
+  plazo_ejecucion: string | null;
+  forma_pago: string | null;
+  garantia: string | null;
+  otros: string | null;
+
+  clients: {
+    full_name: string;
+    document: string | null;
+    phone: string | null;
+    email: string | null;
+    address: string | null;
+  } | null;
+
+  profiles: {
+    full_name: string | null;
+  } | null;
 };
 
 type Item = {
-  id?: number;
-  product_id: number | null;
+  id: number;
   description: string;
   qty: number;
   unit_price: number;
   taxable: boolean;
+  line_total: number;
 };
 
-type ProformaBase = {
-  id: number;
-  client_id: number | null;
-  iva_rate: number;
-  validez_oferta: string | null;
-  plazo_ejecucion: string | null;
-  forma_pago: string | null;
-  garantia: string | null;
-  otros: string | null;
-};
+const BUCKET = "proforma-assets";
 
-type ProformaSettings = {
-  validez_oferta: string | null;
-  plazo_ejecucion: string | null;
-  forma_pago: string | null;
-  garantia: string | null;
-  otros: string | null;
-};
+function money(n: number | null | undefined) {
+  return Number(n ?? 0).toFixed(2);
+}
 
-const COLORS = {
-  dark: "#0D0D0D",
-  text: "#1F2937",
-  white: "#FFFFFF",
-  bone: "#F5F5F0",
-  grayBg: "#E5E7EB",
-  grayBorder: "#E5E7EB",
-  blue: "#05AFF2",
-  cyan: "#05DBF2",
-  aqua: "#05F2F2",
-  danger: "#ff5a5a",
-};
+function formatDateLong(dateStr: string) {
+  try {
+    return new Date(dateStr).toLocaleDateString("es-EC", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+}
 
-const pageVariants = {
-  hidden: { opacity: 0, y: 18 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.45,
-      ease: "easeOut" as const,
-      staggerChildren: 0.08,
-    },
-  },
-};
+async function getData(id: number) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 22 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.4, ease: "easeOut" as const },
-  },
-};
-
-const sidebarVariants = {
-  hidden: { opacity: 0, x: -30 },
-  visible: {
-    opacity: 1,
-    x: 0,
-    transition: { duration: 0.45, ease: "easeOut" as const },
-  },
-};
-
-const modalBackdropVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { duration: 0.2, ease: "easeOut" as const },
-  },
-  exit: {
-    opacity: 0,
-    transition: { duration: 0.18, ease: "easeIn" as const },
-  },
-};
-
-const modalVariants = {
-  hidden: { opacity: 0, y: 18, scale: 0.98 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: { duration: 0.25, ease: "easeOut" as const },
-  },
-  exit: {
-    opacity: 0,
-    y: 10,
-    scale: 0.98,
-    transition: { duration: 0.18, ease: "easeIn" as const },
-  },
-};
-
-export default function EditProformaPage() {
-  const params = useParams();
-  const router = useRouter();
-  const id = Number(params.id);
-
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  const [clients, setClients] = useState<Client[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [clientId, setClientId] = useState<number | null>(null);
-  const [ivaRate, setIvaRate] = useState<number>(15);
-
-  const [items, setItems] = useState<Item[]>([
-    { product_id: null, description: "", qty: 1, unit_price: 0, taxable: true },
-  ]);
-
-  const [validezOferta, setValidezOferta] = useState("");
-  const [plazoEjecucion, setPlazoEjecucion] = useState("");
-  const [formaPago, setFormaPago] = useState("");
-  const [garantia, setGarantia] = useState("");
-  const [otros, setOtros] = useState("");
-
-  const [showClientModal, setShowClientModal] = useState(false);
-  const [savingClient, setSavingClient] = useState(false);
-  const [clientMsg, setClientMsg] = useState("");
-
-  const [newClientName, setNewClientName] = useState("");
-  const [newClientDocument, setNewClientDocument] = useState("");
-  const [newClientPhone, setNewClientPhone] = useState("");
-  const [newClientEmail, setNewClientEmail] = useState("");
-  const [newClientAddress, setNewClientAddress] = useState("");
-
-  const totals = useMemo(() => {
-    const subtotal = items.reduce((acc, it) => acc + (it.qty * it.unit_price || 0), 0);
-
-    const taxableBase = items
-      .filter((it) => it.taxable)
-      .reduce((acc, it) => acc + (it.qty * it.unit_price || 0), 0);
-
-    const iva = +(taxableBase * (ivaRate / 100)).toFixed(2);
-    const total = +(subtotal + iva).toFixed(2);
-
-    return {
-      subtotal: +subtotal.toFixed(2),
+  const { data: pro, error: err1 } = await supabase
+    .from("proformas")
+    .select(`
+      id,
+      number,
+      iva_rate,
+      subtotal,
       iva,
       total,
-    };
-  }, [items, ivaRate]);
+      created_at,
+      validez_oferta,
+      plazo_ejecucion,
+      forma_pago,
+      garantia,
+      otros,
+      clients(full_name, document, phone, email, address),
+      profiles(full_name)
+    `)
+    .eq("id", id)
+    .single();
 
-  async function loadClients() {
-    const { data } = await supabase
-      .from("clients")
-      .select("id, full_name, document")
-      .order("id", { ascending: false });
+  if (err1) throw new Error(err1.message);
 
-    setClients((data ?? []) as Client[]);
-  }
+  const { data: items, error: err2 } = await supabase
+    .from("proforma_items")
+    .select("id, description, qty, unit_price, taxable, line_total")
+    .eq("proforma_id", id)
+    .order("id", { ascending: true });
 
-  async function loadProducts() {
-    const { data } = await supabase
-      .from("products")
-      .select("id, name, price, iva")
-      .order("id", { ascending: false });
+  if (err2) throw new Error(err2.message);
 
-    setProducts((data ?? []) as Product[]);
-  }
+  const { data: h } = supabase.storage.from(BUCKET).getPublicUrl("header.png");
+  const { data: f } = supabase.storage.from(BUCKET).getPublicUrl("footer.png");
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      setMsg(null);
+  const normalizedProforma: Proforma = {
+  ...(pro as any),
+  clients: Array.isArray((pro as any).clients)
+    ? (pro as any).clients[0] ?? null
+    : (pro as any).clients ?? null,
+  profiles: Array.isArray((pro as any).profiles)
+    ? (pro as any).profiles[0] ?? null
+    : (pro as any).profiles ?? null,
+};
 
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user) {
-        router.push("/login");
-        return;
-      }
+return {
+  pro: normalizedProforma,
+  items: (items ?? []) as Item[],
+  headerUrl: `${h.publicUrl}?t=${Date.now()}`,
+  footerUrl: `${f.publicUrl}?t=${Date.now()}`,
+};
+}
 
-      await loadClients();
-      await loadProducts();
+export default async function ProformaPdfPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const resolved = await params;
+  const id = Number(resolved.id);
 
-      const { data: proforma, error: proErr } = await supabase
-        .from("proformas")
-        .select(`
-          id,
-          client_id,
-          iva_rate,
-          validez_oferta,
-          plazo_ejecucion,
-          forma_pago,
-          garantia,
-          otros
-        `)
-        .eq("id", id)
-        .single();
+  const { pro: p, items, headerUrl, footerUrl } = await getData(id);
 
-      if (proErr || !proforma) {
-        setMsg(proErr?.message ?? "No se pudo cargar la proforma.");
-        setLoading(false);
-        return;
-      }
-
-      const { data: itemRows, error: itemErr } = await supabase
-        .from("proforma_items")
-        .select("id, product_id, description, qty, unit_price, taxable")
-        .eq("proforma_id", id)
-        .order("id", { ascending: true });
-
-      if (itemErr) {
-        setMsg(itemErr.message);
-        setLoading(false);
-        return;
-      }
-
-      const p = proforma as ProformaBase;
-
-      setClientId(p.client_id ?? null);
-      setIvaRate(Number(p.iva_rate ?? 15));
-      setValidezOferta(p.validez_oferta ?? "");
-      setPlazoEjecucion(p.plazo_ejecucion ?? "");
-      setFormaPago(p.forma_pago ?? "");
-      setGarantia(p.garantia ?? "");
-      setOtros(p.otros ?? "");
-
-      if (itemRows && itemRows.length > 0) {
-        setItems(
-          itemRows.map((it: any) => ({
-            id: it.id,
-            product_id: it.product_id,
-            description: it.description ?? "",
-            qty: Number(it.qty ?? 1),
-            unit_price: Number(it.unit_price ?? 0),
-            taxable: !!it.taxable,
-          }))
-        );
-      } else {
-        setItems([
-          { product_id: null, description: "", qty: 1, unit_price: 0, taxable: true },
-        ]);
-      }
-
-      if (
-        !p.validez_oferta &&
-        !p.plazo_ejecucion &&
-        !p.forma_pago &&
-        !p.garantia &&
-        !p.otros
-      ) {
-        const { data: st } = await supabase
-          .from("proforma_settings")
-          .select("validez_oferta, plazo_ejecucion, forma_pago, garantia, otros")
-          .eq("id", 1)
-          .maybeSingle();
-
-        const settings = (st ?? null) as ProformaSettings | null;
-
-        setValidezOferta(settings?.validez_oferta ?? "90 Días");
-        setPlazoEjecucion(
-          settings?.plazo_ejecucion ??
-            "30 días contados a partir de la suscripción del contrato"
-        );
-        setFormaPago(settings?.forma_pago ?? "50% al inicio y diferencia en la Entrega");
-        setGarantia(settings?.garantia ?? "3 año de Garantía");
-        setOtros(settings?.otros ?? "No incluye punto de red ni de luz.");
-      }
-
-      setLoading(false);
-    })();
-  }, [id, router]);
-
-  function addRow() {
-    setItems((prev) => [
-      ...prev,
-      { product_id: null, description: "", qty: 1, unit_price: 0, taxable: true },
-    ]);
-  }
-
-  function removeRow(i: number) {
-    setItems((prev) => prev.filter((_, idx) => idx !== i));
-  }
-
-  function onPickProduct(i: number, productId: number) {
-    const p = products.find((x) => x.id === productId);
-    if (!p) return;
-
-    setItems((prev) =>
-      prev.map((it, idx) =>
-        idx === i
-          ? {
-              ...it,
-              product_id: p.id,
-              description: p.name,
-              unit_price: Number(p.price),
-              taxable: p.iva,
-            }
-          : it
-      )
-    );
-  }
-
-  async function saveNewClient() {
-    setClientMsg("");
-
-    if (!newClientName.trim()) {
-      setClientMsg("El nombre o razón social es obligatorio.");
-      return;
-    }
-
-    const { data } = await supabase.auth.getUser();
-    const user = data.user;
-
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-
-    setSavingClient(true);
-
-    const { data: inserted, error } = await supabase
-      .from("clients")
-      .insert({
-        full_name: newClientName.trim(),
-        document: newClientDocument.trim() || null,
-        phone: newClientPhone.trim() || null,
-        email: newClientEmail.trim() || null,
-        address: newClientAddress.trim() || null,
-        created_by: user.id,
-      })
-      .select("id, full_name, document")
-      .single();
-
-    setSavingClient(false);
-
-    if (error) {
-      setClientMsg(error.message);
-      return;
-    }
-
-    const newClient = inserted as Client;
-
-    setClients((prev) => [newClient, ...prev]);
-    setClientId(newClient.id);
-
-    setNewClientName("");
-    setNewClientDocument("");
-    setNewClientPhone("");
-    setNewClientEmail("");
-    setNewClientAddress("");
-    setClientMsg("");
-    setShowClientModal(false);
-  }
-
-  async function save() {
-    setMsg(null);
-
-    if (!clientId) return setMsg("Selecciona un cliente.");
-    if (items.length === 0) return setMsg("Agrega al menos un ítem.");
-
-    for (const it of items) {
-      if (!it.description.trim()) return setMsg("Hay un ítem sin descripción.");
-      if (it.qty <= 0) return setMsg("Cantidad inválida.");
-      if (it.unit_price < 0) return setMsg("Precio inválido.");
-    }
-
-    setSaving(true);
-
-    const { error: proErr } = await supabase
-      .from("proformas")
-      .update({
-        client_id: clientId,
-        iva_rate: ivaRate,
-        subtotal: totals.subtotal,
-        iva: totals.iva,
-        total: totals.total,
-        validez_oferta: validezOferta.trim() || null,
-        plazo_ejecucion: plazoEjecucion.trim() || null,
-        forma_pago: formaPago.trim() || null,
-        garantia: garantia.trim() || null,
-        otros: otros.trim() || null,
-      })
-      .eq("id", id);
-
-    if (proErr) {
-      setMsg(proErr.message);
-      setSaving(false);
-      return;
-    }
-
-    const { error: delErr } = await supabase
-      .from("proforma_items")
-      .delete()
-      .eq("proforma_id", id);
-
-    if (delErr) {
-      setMsg(delErr.message);
-      setSaving(false);
-      return;
-    }
-
-    const itemsPayload = items.map((it) => ({
-      proforma_id: id,
-      product_id: it.product_id,
-      description: it.description,
-      qty: it.qty,
-      unit_price: it.unit_price,
-      taxable: it.taxable,
-      line_total: +(it.qty * it.unit_price).toFixed(2),
-    }));
-
-    const { error: insErr } = await supabase.from("proforma_items").insert(itemsPayload);
-
-    if (insErr) {
-      setMsg(insErr.message);
-      setSaving(false);
-      return;
-    }
-
-    setSaving(false);
-    router.push(`/proformas/${id}`);
-  }
-
-  if (loading) {
-    return (
-      <PageShell>
-        <div
-          style={{
-            minHeight: "100vh",
-            color: COLORS.text,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontFamily: "Inter, Arial, sans-serif",
-          }}
-        >
-          Cargando...
-        </div>
-      </PageShell>
-    );
-  }
+  const c = p.clients;
+  const vendedor = p.profiles?.full_name?.trim() ? p.profiles.full_name : "Vendedor";
+  const descuento = 0;
+  const subtotal2 = Number(p.subtotal ?? 0) - descuento;
 
   return (
-    <PageShell>
-      <motion.div
-        variants={pageVariants}
-        initial="hidden"
-        animate="visible"
-        style={{ maxWidth: 1300, margin: "0 auto", padding: 24 }}
-      >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "290px 1fr",
-            gap: 20,
-          }}
-        >
-          <motion.div
-            variants={sidebarVariants}
-            style={{
-              background: COLORS.blue,
-              border: `2px solid ${COLORS.cyan}`,
-              borderRadius: 24,
-              padding: 20,
-              height: "fit-content",
-              boxShadow: "0 20px 50px rgba(0,0,0,0.18)",
-              color: COLORS.text,
-            }}
+    <div>
+      <style>{`
+        * {
+          box-sizing: border-box;
+        }
+
+        @page {
+          size: A4;
+          margin: 0;
+        }
+
+        html, body {
+          margin: 0;
+          padding: 0;
+          background: #ffffff;
+          font-family: Arial, sans-serif;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        body {
+          width: 21cm;
+          min-height: 29.7cm;
+        }
+
+        .page {
+          width: 21cm;
+          height: 29.7cm;
+          position: relative;
+          overflow: hidden;
+          color: #000;
+          background: #fff;
+          display: block;
+        }
+
+        .header {
+          width: 21cm;
+          height: 4cm;
+          overflow: hidden;
+          display: block;
+        }
+
+        .header img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        .content {
+          padding: 0.28cm 0.28cm 0 0.28cm;
+        }
+
+        .box {
+          border: 2px solid #222;
+        }
+
+        .title-blue {
+          color: #00a2df;
+          font-weight: 800;
+          font-size: 12px;
+        }
+
+        .center {
+          text-align: center;
+        }
+
+        .bold {
+          font-weight: 700;
+        }
+
+        .small {
+          font-size: 11px;
+        }
+
+        table {
+          border-collapse: collapse;
+          width: 100%;
+        }
+
+        .client-table td {
+          font-size: 12px;
+          height: 0.52cm;
+          vertical-align: middle;
+        }
+
+        .client-label {
+          width: 1.8cm;
+          font-weight: 700;
+          text-align: right;
+          padding-right: 6px;
+          white-space: nowrap;
+        }
+
+        .client-value {
+          border: 1px solid #444;
+          padding: 0 6px;
+          line-height: 1.15;
+        }
+
+        .tel-box {
+          display: inline-flex;
+          align-items: center;
+          border: 1px solid #444;
+          min-width: 4.5cm;
+          height: 0.52cm;
+          padding: 0 6px;
+          line-height: 1.15;
+        }
+
+        .detail-table th,
+        .detail-table td {
+          font-size: 11px;
+          line-height: 1.15;
+        }
+
+        .detail-row td {
+          height: 0.52cm;
+          vertical-align: middle;
+          padding: 0 4px;
+        }
+
+        .bank {
+          border: 2px solid #222;
+          padding: 0.03cm 0.2cm;
+          text-align: center;
+          font-size: 10px;
+          font-style: italic;
+          margin: 0.1cm 0.28cm 0 0.28cm;
+        }
+
+        .footer-wrap {
+          position: absolute;
+          left: 0.28cm;
+          right: 0.28cm;
+          bottom: 0.18cm;
+        }
+
+        .footer {
+          width: 100%;
+          height: 3.2cm;
+          overflow: hidden;
+          background: #fff;
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+        }
+
+        .footer img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          object-position: center bottom;
+          display: block;
+        }
+      `}</style>
+
+      <div className="page">
+        <div className="header">
+          <img src={headerUrl} alt="header" />
+        </div>
+
+        <div className="content">
+          <div
+            className="box center"
+            style={{ padding: "0.14cm 0.22cm", fontSize: 12 }}
           >
+            <div className="bold">
+              PROFORMA &nbsp; N°{" "}
+              <span style={{ color: "#0074d9" }}>
+                {String(p.number).padStart(8, "0")}
+              </span>
+            </div>
+            <div className="bold">RUC: 1793196801001</div>
+            <div className="bold">QUITO - GUAYAQUIL - MANABI</div>
+            <div className="bold">
+              Teléfonos: 099 836 9773 - 097 251 6157 - 095 942 7569
+            </div>
+            <div className="small">
+              Correo electrónico: ventas.uio@biometrisec.com - contactanos@biometrisec.com - contabilidad@biometricoec.com
+            </div>
+          </div>
+
+          <div className="box" style={{ marginTop: "0.06cm", height: "0.42cm" }} />
+
+          <div
+            className="box"
+            style={{ marginTop: "0.06cm", padding: "0.12cm 0.18cm" }}
+          >
+            <div className="title-blue" style={{ marginBottom: "0.08cm" }}>
+              DATOS DEL CLIENTE:
+            </div>
+
             <div
               style={{
-                fontSize: 24,
-                fontWeight: 900,
-                marginBottom: 6,
-                color: COLORS.bone,
+                display: "grid",
+                gridTemplateColumns: "1.05fr 0.95fr",
+                gap: "0.2cm",
+                alignItems: "start",
               }}
             >
-              Proformas
-            </div>
-
-            <div style={{ fontSize: 14, marginBottom: 18, opacity: 0.9 }}>
-              Editar proforma
-            </div>
-
-            <div style={{ display: "grid", gap: 10 }}>
-              <Link href="/proformas" style={{ textDecoration: "none" }}>
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  style={navButtonStyle}
-                >
-                  ← Volver a proformas
-                </motion.button>
-              </Link>
-
-              <motion.button
-                onClick={save}
-                style={primaryButtonStyle}
-                disabled={saving}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
-                {saving ? "Guardando..." : "Guardar cambios"}
-              </motion.button>
-            </div>
-          </motion.div>
-
-          <div style={{ display: "grid", gap: 20 }}>
-            <motion.div variants={itemVariants} style={panelStyle}>
-              <div style={{ fontSize: 14, opacity: 0.85 }}>Edición</div>
-              <div style={{ fontSize: 30, fontWeight: 900, marginTop: 6 }}>
-                Editar proforma
+              <div>
+                <table className="client-table">
+                  <tbody>
+                    <tr>
+                      <td className="client-label">Cliente:</td>
+                      <td className="client-value">{c?.full_name ?? "-"}</td>
+                    </tr>
+                    <tr>
+                      <td className="client-label">Ruc:</td>
+                      <td className="client-value">{c?.document ?? "-"}</td>
+                    </tr>
+                    <tr>
+                      <td className="client-label">Ciudad:</td>
+                      <td className="client-value">{c?.address ?? "-"}</td>
+                    </tr>
+                    <tr>
+                      <td className="client-label">Correo:</td>
+                      <td className="client-value">{c?.email ?? "-"}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-              <div style={{ marginTop: 10 }}>
-                Actualiza cliente, ítems y datos del objeto de compra.
-              </div>
-            </motion.div>
 
-            <AnimatePresence>
-              {msg && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.18 }}
+              <div style={{ fontSize: 12 }}>
+                <div style={{ marginBottom: 8 }}>
+                  <b>Telf.:</b> <span className="tel-box">{c?.phone ?? "-"}</span>
+                </div>
+                <div>
+                  <b>Fecha:</b> {formatDateLong(p.created_at)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="box"
+            style={{ marginTop: "0.06cm", padding: "0.1cm 0.16cm 0.14cm" }}
+          >
+            <div className="title-blue center" style={{ marginBottom: "0.06cm" }}>
+              DETALLE:
+            </div>
+
+            <table className="detail-table">
+              <thead>
+                <tr>
+                  <th style={{ textAlign: "left", paddingBottom: 4 }}></th>
+                  <th style={{ width: "2cm", textAlign: "center", paddingBottom: 4 }}>
+                    N° de unidades/Poq
+                  </th>
+                  <th style={{ width: "2.2cm", textAlign: "right", paddingBottom: 4 }}>
+                    Precio Unitario
+                  </th>
+                  <th style={{ width: "2.2cm", textAlign: "right", paddingBottom: 4 }}>
+                    Precio total
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((it) => (
+                  <tr key={it.id} className="detail-row">
+                    <td>{it.description}</td>
+                    <td style={{ textAlign: "center" }}>{Number(it.qty).toFixed(2)}</td>
+                    <td style={{ textAlign: "right" }}>{money(it.unit_price)}</td>
+                    <td style={{ textAlign: "right" }}>{money(it.line_total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
+              <div style={{ width: "7cm", fontSize: 12 }}>
+                {descuento > 0 && (
+                  <>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        color: "red",
+                      }}
+                    >
+                      <span>Descuento</span>
+                      <b>-{money(descuento)}</b>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span>Sub-Total</span>
+                      <b>{money(subtotal2)}</b>
+                    </div>
+                  </>
+                )}
+
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Sub-Total</span>
+                  <b>{money(p.subtotal)}</b>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Iva {Number(p.iva_rate).toFixed(0)}%</span>
+                  <b>{money(p.iva)}</b>
+                </div>
+
+                <div
                   style={{
-                    background: "#FEE2E2",
-                    border: "1px solid #FCA5A5",
-                    color: "#991B1B",
-                    borderRadius: 16,
-                    padding: 14,
-                    fontWeight: 600,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontWeight: 800,
                   }}
                 >
-                  {msg}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <motion.div
-              variants={itemVariants}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                gap: 16,
-              }}
-            >
-              <MetricCard title="Subtotal" value={`$${totals.subtotal.toFixed(2)}`} />
-              <MetricCard title="IVA" value={`$${totals.iva.toFixed(2)}`} />
-              <MetricCard title="Total" value={`$${totals.total.toFixed(2)}`} />
-            </motion.div>
-
-            <motion.div variants={itemVariants} style={panelStyle}>
-              <div style={sectionTitle}>Datos principales</div>
-
-              <div style={{ display: "grid", gap: 14 }}>
-                <div>
-                  <label style={labelStyle}>Cliente</label>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 8,
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                      marginTop: 6,
-                    }}
-                  >
-                    <select
-                      value={clientId ?? ""}
-                      onChange={(e) => setClientId(Number(e.target.value))}
-                      style={{ ...selectStyle, minWidth: 360 }}
-                    >
-                      <option value="" disabled>
-                        Selecciona...
-                      </option>
-                      {clients.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.full_name} {c.document ? `(${c.document})` : ""}
-                        </option>
-                      ))}
-                    </select>
-
-                    <motion.button
-                      type="button"
-                      onClick={() => {
-                        setClientMsg("");
-                        setShowClientModal(true);
-                      }}
-                      style={primaryInlineButtonStyle}
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.97 }}
-                    >
-                      + Cliente
-                    </motion.button>
-                  </div>
-                </div>
-
-                <label style={labelStyle}>
-                  IVA (%)
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={ivaRate}
-                    onChange={(e) => setIvaRate(Number(e.target.value))}
-                    style={inputStyle}
-                  />
-                </label>
-              </div>
-            </motion.div>
-
-            <motion.div variants={itemVariants} style={panelStyle}>
-              <div style={sectionTitle}>Detalle de productos</div>
-
-              <div style={{ display: "grid", gap: 12 }}>
-                <AnimatePresence initial={false}>
-                  {items.map((it, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, y: 18 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10, transition: { duration: 0.18 } }}
-                      transition={{ duration: 0.3, delay: i * 0.04 }}
-                      whileHover={{ y: -3, scale: 1.005 }}
-                      style={{
-                        borderRadius: 18,
-                        padding: 16,
-                        background: COLORS.bone,
-                        border: "1px solid #D6D6D0",
-                        boxShadow: "0 8px 20px rgba(0,0,0,0.05)",
-                      }}
-                    >
-                      <div style={{ display: "grid", gap: 12 }}>
-                        <select
-                          value={it.product_id ?? ""}
-                          onChange={(e) => onPickProduct(i, Number(e.target.value))}
-                          style={selectStyle}
-                        >
-                          <option value="">(Elegir producto)</option>
-                          {products.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name} - ${Number(p.price).toFixed(2)}
-                            </option>
-                          ))}
-                        </select>
-
-                        <input
-                          placeholder="Descripción"
-                          value={it.description}
-                          onChange={(e) =>
-                            setItems((prev) =>
-                              prev.map((x, idx) =>
-                                idx === i ? { ...x, description: e.target.value } : x
-                              )
-                            )
-                          }
-                          style={inputStyle}
-                        />
-
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr 1fr 1fr auto",
-                            gap: 12,
-                            alignItems: "center",
-                          }}
-                        >
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={it.qty}
-                            onChange={(e) =>
-                              setItems((prev) =>
-                                prev.map((x, idx) =>
-                                  idx === i ? { ...x, qty: Number(e.target.value) } : x
-                                )
-                              )
-                            }
-                            style={inputStyle}
-                            placeholder="Cantidad"
-                          />
-
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={it.unit_price}
-                            onChange={(e) =>
-                              setItems((prev) =>
-                                prev.map((x, idx) =>
-                                  idx === i ? { ...x, unit_price: Number(e.target.value) } : x
-                                )
-                              )
-                            }
-                            style={inputStyle}
-                            placeholder="Precio unitario"
-                          />
-
-                          <label
-                            style={{
-                              display: "flex",
-                              gap: 8,
-                              alignItems: "center",
-                              color: COLORS.text,
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={it.taxable}
-                              onChange={(e) =>
-                                setItems((prev) =>
-                                  prev.map((x, idx) =>
-                                    idx === i ? { ...x, taxable: e.target.checked } : x
-                                  )
-                                )
-                              }
-                            />
-                            Aplica IVA
-                          </label>
-
-                          {items.length > 1 && (
-                            <motion.button
-                              type="button"
-                              onClick={() => removeRow(i)}
-                              style={dangerButtonStyle}
-                              whileHover={{ scale: 1.03 }}
-                              whileTap={{ scale: 0.97 }}
-                            >
-                              Eliminar
-                            </motion.button>
-                          )}
-                        </div>
-
-                        <div style={{ color: COLORS.text, fontWeight: 700 }}>
-                          Total del ítem: ${(it.qty * it.unit_price).toFixed(2)}
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-
-                <div>
-                  <motion.button
-                    type="button"
-                    onClick={addRow}
-                    style={secondaryButtonStyle}
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                  >
-                    + Agregar ítem
-                  </motion.button>
+                  <span>Total</span>
+                  <b>{money(p.total)}</b>
                 </div>
               </div>
-            </motion.div>
-
-            <motion.div variants={itemVariants} style={panelStyle}>
-              <div style={sectionTitle}>Objeto de compra</div>
-
-              <div style={{ display: "grid", gap: 14 }}>
-                <label style={labelStyle}>
-                  Validez de la oferta
-                  <input
-                    value={validezOferta}
-                    onChange={(e) => setValidezOferta(e.target.value)}
-                    style={inputStyle}
-                  />
-                </label>
-
-                <label style={labelStyle}>
-                  Plazo de ejecución
-                  <input
-                    value={plazoEjecucion}
-                    onChange={(e) => setPlazoEjecucion(e.target.value)}
-                    style={inputStyle}
-                  />
-                </label>
-
-                <label style={labelStyle}>
-                  Forma de pago
-                  <input
-                    value={formaPago}
-                    onChange={(e) => setFormaPago(e.target.value)}
-                    style={inputStyle}
-                  />
-                </label>
-
-                <label style={labelStyle}>
-                  Garantía
-                  <input
-                    value={garantia}
-                    onChange={(e) => setGarantia(e.target.value)}
-                    style={inputStyle}
-                  />
-                </label>
-
-                <label style={labelStyle}>
-                  Otros
-                  <textarea
-                    value={otros}
-                    onChange={(e) => setOtros(e.target.value)}
-                    style={textareaStyle}
-                  />
-                </label>
-              </div>
-            </motion.div>
+            </div>
           </div>
-        </div>
-      </motion.div>
 
-      <AnimatePresence>
-        {showClientModal && (
-          <motion.div
-            onClick={() => {
-              if (!savingClient) setShowClientModal(false);
-            }}
-            variants={modalBackdropVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
+          <div
+            className="box"
             style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0,0,0,0.45)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 20,
-              zIndex: 9999,
+              marginTop: "0.08cm",
+              padding: "0.12cm 0.18cm",
             }}
           >
-            <motion.div
-              onClick={(e) => e.stopPropagation()}
-              variants={modalVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              style={{
-                width: "100%",
-                maxWidth: 620,
-                background: COLORS.bone,
-                color: COLORS.text,
-                border: `1px solid ${COLORS.grayBorder}`,
-                borderRadius: 20,
-                padding: 20,
-                boxShadow: "0 20px 50px rgba(0,0,0,0.20)",
-              }}
-            >
-              <h2 style={{ marginTop: 0, color: COLORS.text }}>Nuevo cliente</h2>
+            <div className="title-blue" style={{ marginBottom: "0.08cm" }}>
+              OBJETO DE COMPRA:
+            </div>
 
-              <div style={{ display: "grid", gap: 12 }}>
-                <label style={labelStyle}>
-                  Nombre / Razón social
-                  <input
-                    value={newClientName}
-                    onChange={(e) => setNewClientName(e.target.value)}
-                    style={inputStyle}
-                  />
-                </label>
+            <table style={{ fontSize: 11 }}>
+              <tbody>
+                <tr>
+                  <td style={{ width: "4.8cm" }}>Validez de la oferta:</td>
+                  <td>{p.validez_oferta ?? "90 Días"}</td>
+                </tr>
+                <tr>
+                  <td>Plazo de ejecución:</td>
+                  <td>{p.plazo_ejecucion ?? "-"}</td>
+                </tr>
+                <tr>
+                  <td>Forma de Pago:</td>
+                  <td>{p.forma_pago ?? "-"}</td>
+                </tr>
+                <tr>
+                  <td>Garantía:</td>
+                  <td>{p.garantia ?? "-"}</td>
+                </tr>
+                <tr>
+                  <td style={{ fontWeight: 700 }}>Otros:</td>
+                  <td style={{ fontWeight: 700, fontStyle: "italic" }}>
+                    {p.otros ?? "-"}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
-                <label style={labelStyle}>
-                  RUC / Cédula
-                  <input
-                    value={newClientDocument}
-                    onChange={(e) => setNewClientDocument(e.target.value)}
-                    style={inputStyle}
-                  />
-                </label>
+            <div style={{ marginTop: 12, fontSize: 12 }}>
+              <b>Vendedor:</b> {vendedor}
+            </div>
+          </div>
+        </div>
 
-                <label style={labelStyle}>
-                  Teléfono
-                  <input
-                    value={newClientPhone}
-                    onChange={(e) => setNewClientPhone(e.target.value)}
-                    style={inputStyle}
-                  />
-                </label>
+        <div className="bank">
+          BIOMETRICOS ECUADOR S.A.S. RUC: 1793196801001 BANCO PRODUBANCO CUENTA CORRIENTE: 02005304101
+        </div>
 
-                <label style={labelStyle}>
-                  Email
-                  <input
-                    value={newClientEmail}
-                    onChange={(e) => setNewClientEmail(e.target.value)}
-                    style={inputStyle}
-                  />
-                </label>
-
-                <label style={labelStyle}>
-                  Vendedor
-                  <input
-                    value={newClientAddress}
-                    onChange={(e) => setNewClientAddress(e.target.value)}
-                    style={inputStyle}
-                  />
-                </label>
-              </div>
-
-              <AnimatePresence>
-                {clientMsg && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.18 }}
-                    style={{
-                      marginTop: 12,
-                      background: "#FEE2E2",
-                      border: "1px solid #FCA5A5",
-                      color: "#991B1B",
-                      borderRadius: 12,
-                      padding: 12,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {clientMsg}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-                <motion.button
-                  onClick={saveNewClient}
-                  disabled={savingClient}
-                  style={primaryInlineButtonStyle}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  {savingClient ? "Guardando..." : "Guardar cliente"}
-                </motion.button>
-
-                <motion.button
-                  onClick={() => setShowClientModal(false)}
-                  disabled={savingClient}
-                  style={secondaryButtonStyle}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  Cancelar
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </PageShell>
-  );
-}
-
-function MetricCard({
-  title,
-  value,
-}: {
-  title: string;
-  value: string;
-}) {
-  return (
-    <motion.div
-      variants={itemVariants}
-      whileHover={{ y: -4, scale: 1.01 }}
-      transition={{ duration: 0.2 }}
-      style={{
-        background: COLORS.bone,
-        border: `1px solid ${COLORS.grayBorder}`,
-        borderRadius: 22,
-        padding: 18,
-        boxShadow: "0 8px 20px rgba(0,0,0,0.06)",
-        color: COLORS.text,
-      }}
-    >
-      <div style={{ fontSize: 14, color: COLORS.text }}>{title}</div>
-      <div
-        style={{
-          marginTop: 10,
-          fontSize: 28,
-          fontWeight: 900,
-          lineHeight: 1.1,
-          color: COLORS.text,
-        }}
-      >
-        {value}
+        <div className="footer-wrap">
+          <div className="footer">
+            <img src={footerUrl} alt="footer" />
+          </div>
+        </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
-
-const panelStyle: React.CSSProperties = {
-  background: COLORS.bone,
-  border: `1px solid ${COLORS.grayBorder}`,
-  borderRadius: 24,
-  padding: 20,
-  boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
-  color: COLORS.text,
-};
-
-const sectionTitle: React.CSSProperties = {
-  fontSize: 18,
-  fontWeight: 800,
-  marginBottom: 14,
-  color: COLORS.text,
-};
-
-const navButtonStyle: React.CSSProperties = {
-  width: "100%",
-  border: `1px solid ${COLORS.grayBorder}`,
-  background: COLORS.bone,
-  color: COLORS.text,
-  padding: "12px 14px",
-  borderRadius: 14,
-  fontWeight: 700,
-  cursor: "pointer",
-  textAlign: "left",
-};
-
-const primaryButtonStyle: React.CSSProperties = {
-  width: "100%",
-  border: "none",
-  background: COLORS.cyan,
-  color: COLORS.text,
-  padding: "12px 14px",
-  borderRadius: 14,
-  fontWeight: 800,
-  cursor: "pointer",
-  textAlign: "left",
-};
-
-const primaryInlineButtonStyle: React.CSSProperties = {
-  border: "none",
-  background: COLORS.cyan,
-  color: COLORS.text,
-  padding: "12px 16px",
-  borderRadius: 12,
-  fontWeight: 800,
-  cursor: "pointer",
-};
-
-const secondaryButtonStyle: React.CSSProperties = {
-  border: `1px solid ${COLORS.grayBorder}`,
-  background: COLORS.white,
-  color: COLORS.text,
-  padding: "12px 16px",
-  borderRadius: 12,
-  fontWeight: 700,
-  cursor: "pointer",
-};
-
-const dangerButtonStyle: React.CSSProperties = {
-  border: "none",
-  background: COLORS.danger,
-  color: COLORS.white,
-  padding: "12px 16px",
-  borderRadius: 12,
-  fontWeight: 700,
-  cursor: "pointer",
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: 12,
-  marginTop: 6,
-  borderRadius: 14,
-  border: `1px solid ${COLORS.grayBorder}`,
-  background: COLORS.white,
-  color: COLORS.text,
-  outline: "none",
-  boxSizing: "border-box",
-};
-
-const selectStyle: React.CSSProperties = {
-  width: "100%",
-  padding: 12,
-  borderRadius: 14,
-  border: `1px solid ${COLORS.grayBorder}`,
-  background: COLORS.white,
-  color: COLORS.text,
-  outline: "none",
-  boxSizing: "border-box",
-};
-
-const textareaStyle: React.CSSProperties = {
-  width: "100%",
-  minHeight: 110,
-  padding: 12,
-  marginTop: 6,
-  borderRadius: 14,
-  border: `1px solid ${COLORS.grayBorder}`,
-  background: COLORS.white,
-  color: COLORS.text,
-  outline: "none",
-  boxSizing: "border-box",
-  resize: "vertical",
-};
-
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: 14,
-  color: COLORS.text,
-};
