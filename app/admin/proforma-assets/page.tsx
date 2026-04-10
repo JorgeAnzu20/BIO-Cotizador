@@ -59,9 +59,17 @@ export default function AdminProformaAssetsPage() {
   const [loading, setLoading] = useState(true);
   const [uploadingHeader, setUploadingHeader] = useState(false);
   const [uploadingFooter, setUploadingFooter] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const [headerUrl, setHeaderUrl] = useState("");
   const [footerUrl, setFooterUrl] = useState("");
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   async function load() {
     setMsg("");
@@ -181,6 +189,7 @@ export default function AdminProformaAssetsPage() {
           alignItems: "center",
           justifyContent: "center",
           fontFamily: "Inter, Arial, sans-serif",
+          padding: 16,
         }}
       >
         Cargando...
@@ -195,18 +204,19 @@ export default function AdminProformaAssetsPage() {
         background: COLORS.grayBg,
         color: COLORS.text,
         fontFamily: "Inter, Arial, sans-serif",
+        overflowX: "hidden",
       }}
     >
       <motion.div
         variants={pageVariants}
         initial="hidden"
         animate="visible"
-        style={{ maxWidth: 1300, margin: "0 auto", padding: 24 }}
+        style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? 14 : 24 }}
       >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "290px 1fr",
+            gridTemplateColumns: isMobile ? "1fr" : "290px 1fr",
             gap: 20,
           }}
         >
@@ -259,10 +269,18 @@ export default function AdminProformaAssetsPage() {
             </div>
           </motion.div>
 
-          <div style={{ display: "grid", gap: 20 }}>
+          <div style={{ display: "grid", gap: 20, minWidth: 0 }}>
             <motion.div variants={itemVariants} style={panelStyle}>
               <div style={{ fontSize: 14, opacity: 0.85 }}>Configuración visual</div>
-              <div style={{ fontSize: 30, fontWeight: 900, marginTop: 6 }}>
+              <div
+                style={{
+                  fontSize: 30,
+                  fontWeight: 900,
+                  marginTop: 6,
+                  lineHeight: 1.1,
+                  wordBreak: "break-word",
+                }}
+              >
                 Plantilla de proforma
               </div>
               <div style={{ marginTop: 10 }}>
@@ -284,6 +302,7 @@ export default function AdminProformaAssetsPage() {
                     borderRadius: 16,
                     padding: 14,
                     fontWeight: 600,
+                    wordBreak: "break-word",
                   }}
                 >
                   {msg}
@@ -295,7 +314,7 @@ export default function AdminProformaAssetsPage() {
               variants={itemVariants}
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gridTemplateColumns: isMobile ? "1fr" : "repeat(2, minmax(0, 1fr))",
                 gap: 20,
               }}
             >
@@ -330,7 +349,11 @@ export default function AdminProformaAssetsPage() {
                   <motion.label
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
-                    style={uploadLabelStyle}
+                    style={{
+                      ...uploadLabelStyle,
+                      width: isMobile ? "100%" : "auto",
+                      textAlign: "center",
+                    }}
                   >
                     {uploadingHeader ? "Subiendo..." : "Subir/Reemplazar header"}
                     <input
@@ -375,7 +398,11 @@ export default function AdminProformaAssetsPage() {
                   <motion.label
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
-                    style={uploadLabelStyle}
+                    style={{
+                      ...uploadLabelStyle,
+                      width: isMobile ? "100%" : "auto",
+                      textAlign: "center",
+                    }}
                   >
                     {uploadingFooter ? "Subiendo..." : "Subir/Reemplazar footer"}
                     <input
