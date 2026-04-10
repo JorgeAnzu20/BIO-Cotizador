@@ -6,12 +6,24 @@ import { createClient } from "@supabase/supabase-js";
 
 const PRODUCT_PDF_BUCKET = "product-pdfs";
 
+/* 🔥 REUTILIZAR NAVEGADOR */
+let browserGlobal: Browser | null = null;
+
+async function getBrowser() {
+  if (!browserGlobal) {
+    browserGlobal = await puppeteer.launch({
+      args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
+      executablePath: await chromium.executablePath(),
+      headless: true,
+    });
+  }
+  return browserGlobal;
+}
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  let browser: Browser | null = null;
-
   try {
     const resolved = await params;
     const id = Number(resolved.id);
@@ -33,48 +45,29 @@ export async function GET(
       baseUrl = envBaseUrl.replace(/\/+$/, "");
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } }
+    );
 
-    if (!supabaseUrl) {
-      return NextResponse.json(
-        { error: "Falta NEXT_PUBLIC_SUPABASE_URL" },
-        { status: 500 }
-      );
-    }
-
-    if (!serviceRoleKey) {
-      return NextResponse.json(
-        { error: "Falta SUPABASE_SERVICE_ROLE_KEY" },
-        { status: 500 }
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false },
-    });
-
-    const { data: proforma, error: proErr } = await supabase
+    const { data: proforma } = await supabase
       .from("proformas")
       .select("id, number")
       .eq("id", id)
       .single();
 
-    if (proErr || !proforma) {
+    if (!proforma) {
       return NextResponse.json(
-        { error: proErr?.message ?? "No se encontró la proforma" },
+        { error: "No se encontró la proforma" },
         { status: 404 }
       );
     }
 
-    const { data: rawItems, error: itemsErr } = await supabase
+    const { data: rawItems } = await supabase
       .from("proforma_items")
       .select("product_id")
       .eq("proforma_id", id);
-
-    if (itemsErr) {
-      return NextResponse.json({ error: itemsErr.message }, { status: 500 });
-    }
 
     const productIds = Array.from(
       new Set(
@@ -87,56 +80,37 @@ export async function GET(
     let pdfPaths: string[] = [];
 
     if (productIds.length > 0) {
-      const { data: products, error: prodErr } = await supabase
+      const { data: products } = await supabase
         .from("products")
-        .select("id, pdf_path")
+        .select("pdf_path")
         .in("id", productIds);
-
-      if (prodErr) {
-        return NextResponse.json({ error: prodErr.message }, { status: 500 });
-      }
 
       pdfPaths = Array.from(
         new Set(
           (products ?? [])
             .map((p: any) => p?.pdf_path ?? null)
-            .filter((x: string | null) => !!x)
+            .filter(Boolean)
         )
       ) as string[];
     }
 
-    browser = await puppeteer.launch({
-      args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
-      executablePath: await chromium.executablePath(),
-      headless: true,
-      defaultViewport: {
-        width: 1280,
-        height: 720,
-      },
-    });
-
+    /* 🔥 USAR BROWSER GLOBAL */
+    const browser = await getBrowser();
     const page = await browser.newPage();
 
-    const pdfPageUrl = `${baseUrl}/proformas/${id}/pdf`;
-
+    /* 🔥 MENOS ESPERA */
     await page.goto(`${baseUrl}/proformas/${id}/pdf`, {
-  waitUntil: "domcontentloaded",
-      timeout: 60000,
-});
+      waitUntil: "domcontentloaded",
+      timeout: 15000,
+    });
 
     const mainPdf = await page.pdf({
       format: "A4",
       printBackground: true,
-      margin: {
-        top: "0cm",
-        right: "0cm",
-        bottom: "0cm",
-        left: "0cm",
-      },
+      margin: { top: "0", right: "0", bottom: "0", left: "0" },
     });
 
-    await browser.close();
-    browser = null;
+    await page.close();
 
     const mergedPdf = await PDFDocument.create();
 
@@ -147,32 +121,27 @@ export async function GET(
     );
     mainPages.forEach((p) => mergedPdf.addPage(p));
 
-    for (const pdfPath of pdfPaths) {
-      const { data: fileData, error: fileErr } = await supabase.storage
-        .from(PRODUCT_PDF_BUCKET)
-        .download(pdfPath);
+    /* 🔥 DESCARGAS EN PARALELO */
+    const files = await Promise.all(
+      pdfPaths.map((path) =>
+        supabase.storage.from(PRODUCT_PDF_BUCKET).download(path)
+      )
+    );
 
-      if (fileErr || !fileData) {
-        console.error(
-          "No se pudo descargar PDF del producto:",
-          pdfPath,
-          fileErr?.message
-        );
-        continue;
-      }
+    for (const res of files) {
+      const fileData = res.data;
+      if (!fileData) continue;
 
       const bytes = await fileData.arrayBuffer();
 
       try {
         const annexDoc = await PDFDocument.load(bytes);
-        const annexPages = await mergedPdf.copyPages(
+        const pages = await mergedPdf.copyPages(
           annexDoc,
           annexDoc.getPageIndices()
         );
-        annexPages.forEach((p) => mergedPdf.addPage(p));
-      } catch (e) {
-        console.error("No se pudo anexar PDF:", pdfPath, e);
-      }
+        pages.forEach((p) => mergedPdf.addPage(p));
+      } catch {}
     }
 
     const finalPdfBytes = await mergedPdf.save();
@@ -180,22 +149,14 @@ export async function GET(
     return new NextResponse(Buffer.from(finalPdfBytes), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="proforma-${String(proforma.number).padStart(8, "0")}.pdf"`,
+        "Content-Disposition": `attachment; filename="proforma-${String(
+          proforma.number
+        ).padStart(8, "0")}.pdf"`,
       },
     });
   } catch (error: any) {
-    if (browser) {
-      try {
-        await browser.close();
-      } catch {}
-    }
-
     return NextResponse.json(
-      {
-        error: error?.message ?? "No se pudo generar el PDF",
-        appUrlEnv: process.env.NEXT_PUBLIC_APP_URL ?? null,
-        requestOrigin: new URL(req.url).origin,
-      },
+      { error: error?.message ?? "No se pudo generar el PDF" },
       { status: 500 }
     );
   }
