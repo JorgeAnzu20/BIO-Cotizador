@@ -6,12 +6,45 @@ import { createClient } from "@supabase/supabase-js";
 
 const PRODUCT_PDF_BUCKET = "product-pdfs";
 
+// ✅ Supabase singleton fuera del handler
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { persistSession: false } }
+);
+
+// ✅ Browser reutilizable entre requests (warm browser)
+let browserInstance: Browser | null = null;
+
+async function getBrowser(): Promise<Browser> {
+  if (browserInstance && browserInstance.connected) {
+    return browserInstance;
+  }
+  browserInstance = await puppeteer.launch({
+    args: [
+      ...chromium.args,
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",    // ✅ Evita crashes en entornos con poca memoria
+      "--disable-gpu",
+    ],
+    executablePath: await chromium.executablePath(),
+    headless: true,
+    defaultViewport: { width: 1280, height: 720 },
+  });
+
+  // Si el browser muere, limpiamos la referencia
+  browserInstance.on("disconnected", () => {
+    browserInstance = null;
+  });
+
+  return browserInstance;
+}
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  let browser: Browser | null = null;
-
   try {
     const resolved = await params;
     const id = Number(resolved.id);
@@ -20,45 +53,32 @@ export async function GET(
       return NextResponse.json({ error: "ID inválido" }, { status: 400 });
     }
 
-    const requestOrigin = new URL(req.url).origin;
-    const envBaseUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "";
-
-    let baseUrl = requestOrigin;
-
+    // Validaciones de env al inicio del módulo, no en cada request
     if (
+      !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      !process.env.SUPABASE_SERVICE_ROLE_KEY
+    ) {
+      return NextResponse.json(
+        { error: "Faltan variables de entorno" },
+        { status: 500 }
+      );
+    }
+
+    const envBaseUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "";
+    const requestOrigin = new URL(req.url).origin;
+    const baseUrl =
       envBaseUrl &&
       !envBaseUrl.includes("localhost") &&
       !envBaseUrl.includes("127.0.0.1")
-    ) {
-      baseUrl = envBaseUrl.replace(/\/+$/, "");
-    }
+        ? envBaseUrl.replace(/\/+$/, "")
+        : requestOrigin;
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl) {
-      return NextResponse.json(
-        { error: "Falta NEXT_PUBLIC_SUPABASE_URL" },
-        { status: 500 }
-      );
-    }
-
-    if (!serviceRoleKey) {
-      return NextResponse.json(
-        { error: "Falta SUPABASE_SERVICE_ROLE_KEY" },
-        { status: 500 }
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false },
-    });
-
-    const { data: proforma, error: proErr } = await supabase
-      .from("proformas")
-      .select("id, number")
-      .eq("id", id)
-      .single();
+    // ✅ Queries en paralelo: proforma + items al mismo tiempo
+    const [{ data: proforma, error: proErr }, { data: rawItems, error: itemsErr }] =
+      await Promise.all([
+        supabase.from("proformas").select("id, number").eq("id", id).single(),
+        supabase.from("proforma_items").select("product_id").eq("proforma_id", id),
+      ]);
 
     if (proErr || !proforma) {
       return NextResponse.json(
@@ -66,11 +86,6 @@ export async function GET(
         { status: 404 }
       );
     }
-
-    const { data: rawItems, error: itemsErr } = await supabase
-      .from("proforma_items")
-      .select("product_id")
-      .eq("proforma_id", id);
 
     if (itemsErr) {
       return NextResponse.json({ error: itemsErr.message }, { status: 500 });
@@ -80,98 +95,101 @@ export async function GET(
       new Set(
         (rawItems ?? [])
           .map((row: any) => row?.product_id)
-          .filter((x: number | null) => Number.isFinite(x))
+          .filter((x: any) => Number.isFinite(x))
       )
     ) as number[];
 
-    let pdfPaths: string[] = [];
+    // ✅ Query de productos + render del PDF en paralelo
+    const [productsResult, mainPdf] = await Promise.all([
+      productIds.length > 0
+        ? supabase.from("products").select("id, pdf_path").in("id", productIds)
+        : Promise.resolve({ data: [], error: null }),
 
-    if (productIds.length > 0) {
-      const { data: products, error: prodErr } = await supabase
-        .from("products")
-        .select("id, pdf_path")
-        .in("id", productIds);
+      // Render con Puppeteer mientras buscamos los productos
+      (async () => {
+        const browser = await getBrowser();
+        const page = await browser.newPage();
 
-      if (prodErr) {
-        return NextResponse.json({ error: prodErr.message }, { status: 500 });
-      }
+        // ✅ Bloqueamos recursos innecesarios para el PDF
+        await page.setRequestInterception(true);
+        page.on("request", (req) => {
+          const type = req.resourceType();
+          if (["font", "media"].includes(type)) {
+            req.abort();
+          } else {
+            req.continue();
+          }
+        });
 
-      pdfPaths = Array.from(
-        new Set(
-          (products ?? [])
-            .map((p: any) => p?.pdf_path ?? null)
-            .filter((x: string | null) => !!x)
-        )
-      ) as string[];
+        try {
+          await page.goto(`${baseUrl}/proformas/${id}/pdf`, {
+            // ✅ networkidle0 garantiza que los datos async ya cargaron
+            waitUntil: "networkidle0",
+            timeout: 20000,
+          });
+
+          const pdf = await page.pdf({
+            format: "A4",
+            printBackground: true,
+            margin: { top: "0cm", right: "0cm", bottom: "0cm", left: "0cm" },
+          });
+
+          return pdf;
+        } finally {
+          // ✅ Cerramos solo la página, no el browser completo
+          await page.close();
+        }
+      })(),
+    ]);
+
+    if (productsResult.error) {
+      return NextResponse.json(
+        { error: productsResult.error.message },
+        { status: 500 }
+      );
     }
 
-    browser = await puppeteer.launch({
-      args: [...chromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
-      executablePath: await chromium.executablePath(),
-      headless: true,
-      defaultViewport: {
-        width: 1280,
-        height: 720,
-      },
-    });
+    const pdfPaths = Array.from(
+      new Set(
+        (productsResult.data ?? [])
+          .map((p: any) => p?.pdf_path ?? null)
+          .filter(Boolean)
+      )
+    ) as string[];
 
-    const page = await browser.newPage();
+    // ✅ Descarga de PDFs de productos en paralelo
+    const annexBuffers = await Promise.allSettled(
+      pdfPaths.map(async (pdfPath) => {
+        const { data: fileData, error: fileErr } = await supabase.storage
+          .from(PRODUCT_PDF_BUCKET)
+          .download(pdfPath);
 
-    const pdfPageUrl = `${baseUrl}/proformas/${id}/pdf`;
+        if (fileErr || !fileData) {
+          console.error("No se pudo descargar PDF:", pdfPath, fileErr?.message);
+          return null;
+        }
+        return fileData.arrayBuffer();
+      })
+    );
 
-    await page.goto(`${baseUrl}/proformas/${id}/pdf`, {
-  waitUntil: "domcontentloaded",
-      timeout: 15000,
-});
-
-    const mainPdf = await page.pdf({
-      format: "A4",
-      printBackground: true,
-      margin: {
-        top: "0cm",
-        right: "0cm",
-        bottom: "0cm",
-        left: "0cm",
-      },
-    });
-
-    await browser.close();
-    browser = null;
-
+    // ✅ Merge de PDFs
     const mergedPdf = await PDFDocument.create();
 
     const mainDoc = await PDFDocument.load(mainPdf);
-    const mainPages = await mergedPdf.copyPages(
-      mainDoc,
-      mainDoc.getPageIndices()
-    );
+    const mainPages = await mergedPdf.copyPages(mainDoc, mainDoc.getPageIndices());
     mainPages.forEach((p) => mergedPdf.addPage(p));
 
-    for (const pdfPath of pdfPaths) {
-      const { data: fileData, error: fileErr } = await supabase.storage
-        .from(PRODUCT_PDF_BUCKET)
-        .download(pdfPath);
-
-      if (fileErr || !fileData) {
-        console.error(
-          "No se pudo descargar PDF del producto:",
-          pdfPath,
-          fileErr?.message
-        );
-        continue;
-      }
-
-      const bytes = await fileData.arrayBuffer();
-
+    for (const result of annexBuffers) {
+      if (result.status !== "fulfilled" || !result.value) continue;
       try {
-        const annexDoc = await PDFDocument.load(bytes);
+        const annexDoc = await PDFDocument.load(result.value);
         const annexPages = await mergedPdf.copyPages(
           annexDoc,
           annexDoc.getPageIndices()
         );
         annexPages.forEach((p) => mergedPdf.addPage(p));
       } catch (e) {
-        console.error("No se pudo anexar PDF:", pdfPath, e);
+        console.error("No se pudo anexar PDF:", e);
       }
     }
 
@@ -184,12 +202,6 @@ export async function GET(
       },
     });
   } catch (error: any) {
-    if (browser) {
-      try {
-        await browser.close();
-      } catch {}
-    }
-
     return NextResponse.json(
       {
         error: error?.message ?? "No se pudo generar el PDF",
