@@ -42,6 +42,13 @@ type Item = {
 
 const BUCKET = "proforma-assets";
 
+// ✅ Singleton fuera del render, se crea una sola vez
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { persistSession: false } }
+);
+
 function money(n: number | null | undefined) {
   return Number(n ?? 0).toFixed(2);
 }
@@ -60,41 +67,40 @@ function formatDateLong(dateStr: string) {
 }
 
 async function getData(id: number) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
-  );
+  // ✅ Las 2 queries van en paralelo en lugar de secuencial
+  const [
+    { data: pro, error: err1 },
+    { data: items, error: err2 },
+  ] = await Promise.all([
+    supabase
+      .from("proformas")
+      .select(`
+        id,
+        number,
+        iva_rate,
+        subtotal,
+        iva,
+        total,
+        created_at,
+        validez_oferta,
+        plazo_ejecucion,
+        forma_pago,
+        garantia,
+        otros,
+        clients(full_name, document, phone, email, address),
+        profiles(full_name)
+      `)
+      .eq("id", id)
+      .single(),
 
-  const { data: pro, error: err1 } = await supabase
-    .from("proformas")
-    .select(`
-      id,
-      number,
-      iva_rate,
-      subtotal,
-      iva,
-      total,
-      created_at,
-      validez_oferta,
-      plazo_ejecucion,
-      forma_pago,
-      garantia,
-      otros,
-      clients(full_name, document, phone, email, address),
-      profiles(full_name)
-    `)
-    .eq("id", id)
-    .single();
+    supabase
+      .from("proforma_items")
+      .select("id, description, qty, unit_price, taxable, line_total")
+      .eq("proforma_id", id)
+      .order("id", { ascending: true }),
+  ]);
 
   if (err1) throw new Error(err1.message);
-
-  const { data: items, error: err2 } = await supabase
-    .from("proforma_items")
-    .select("id, description, qty, unit_price, taxable, line_total")
-    .eq("proforma_id", id)
-    .order("id", { ascending: true });
-
   if (err2) throw new Error(err2.message);
 
   const { data: h } = supabase.storage.from(BUCKET).getPublicUrl("header.png");
@@ -269,28 +275,27 @@ export default async function ProformaPdfPage({
           margin: 0.1cm 0.28cm 0 0.28cm;
         }
 
-          .footer-wrap {
-    position: absolute;
-    left: 0;
-    bottom: 0;
-  }
+        .footer-wrap {
+          position: absolute;
+          left: 0;
+          bottom: 0;
+        }
 
-  .footer {
-    width: 21cm;
-    height: 4cm;
-    overflow: hidden;
-    background: #fff;
-    display: block;
-  }
+        .footer {
+          width: 21cm;
+          height: 4cm;
+          overflow: hidden;
+          background: #fff;
+          display: block;
+        }
 
-  .footer img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-
-`}</style>
+        .footer img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+      `}</style>
 
       <div className="page">
         <div className="header">
