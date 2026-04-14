@@ -136,6 +136,9 @@ export default function NewProformaPage() {
     { product_id: null, description: "", qty: 1, unit_price: 0, taxable: true },
   ]);
 
+  const [productSearches, setProductSearches] = useState<string[]>([""]);
+  const [showProductDropdowns, setShowProductDropdowns] = useState<boolean[]>([false]);
+
   const [sellerName, setSellerName] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -271,28 +274,46 @@ export default function NewProformaPage() {
   }, [clientId, clients]);
 
   useEffect(() => {
+    items.forEach((it, i) => {
+      const selected = products.find((p) => p.id === it.product_id);
+      if (selected && productSearches[i] !== `${selected.name} - $${Number(selected.price).toFixed(2)}`) {
+        setProductSearches((prev) => {
+          const next = [...prev];
+          next[i] = `${selected.name} - $${Number(selected.price).toFixed(2)}`;
+          return next;
+        });
+      }
+    });
+  }, [items, products]);
+
+  useEffect(() => {
     function handleClickOutside() {
       setShowClientDropdown(false);
+      setShowProductDropdowns((prev) => prev.map(() => false));
     }
 
-    if (showClientDropdown) {
+    if (showClientDropdown || showProductDropdowns.some(Boolean)) {
       window.addEventListener("click", handleClickOutside);
     }
 
     return () => {
       window.removeEventListener("click", handleClickOutside);
     };
-  }, [showClientDropdown]);
+  }, [showClientDropdown, showProductDropdowns]);
 
   function addRow() {
     setItems((prev) => [
       ...prev,
       { product_id: null, description: "", qty: 1, unit_price: 0, taxable: true },
     ]);
+    setProductSearches((prev) => [...prev, ""]);
+    setShowProductDropdowns((prev) => [...prev, false]);
   }
 
   function removeRow(i: number) {
     setItems((prev) => prev.filter((_, idx) => idx !== i));
+    setProductSearches((prev) => prev.filter((_, idx) => idx !== i));
+    setShowProductDropdowns((prev) => prev.filter((_, idx) => idx !== i));
   }
 
   function onPickProduct(i: number, productId: number) {
@@ -312,6 +333,29 @@ export default function NewProformaPage() {
           : it
       )
     );
+
+    setProductSearches((prev) =>
+      prev.map((value, idx) =>
+        idx === i ? `${p.name} - $${Number(p.price).toFixed(2)}` : value
+      )
+    );
+
+    setShowProductDropdowns((prev) =>
+      prev.map((value, idx) => (idx === i ? false : value))
+    );
+  }
+
+  function getFilteredProducts(search: string) {
+    const q = search.trim().toLowerCase();
+
+    if (!q) return products.slice(0, 30);
+
+    return products
+      .filter((p) => {
+        const name = (p.name ?? "").toLowerCase();
+        return name.includes(q);
+      })
+      .slice(0, 30);
   }
 
   async function saveNewClient() {
@@ -738,134 +782,224 @@ export default function NewProformaPage() {
 
               <div style={{ display: "grid", gap: 12 }}>
                 <AnimatePresence initial={false}>
-                  {items.map((it, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, y: 18 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10, transition: { duration: 0.18 } }}
-                      transition={{ duration: 0.3, delay: i * 0.04 }}
-                      whileHover={{ y: -3, scale: 1.005 }}
-                      style={{
-                        borderRadius: 18,
-                        padding: 16,
-                        background: COLORS.bone,
-                        border: "1px solid #D6D6D0",
-                        boxShadow: "0 8px 20px rgba(0,0,0,0.05)",
-                      }}
-                    >
-                      <div style={{ display: "grid", gap: 12 }}>
-                        <select
-                          value={it.product_id ?? ""}
-                          onChange={(e) => onPickProduct(i, Number(e.target.value))}
-                          style={selectStyle}
-                        >
-                          <option value="">(Elegir producto)</option>
-                          {products.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name} - ${Number(p.price).toFixed(2)}
-                            </option>
-                          ))}
-                        </select>
+                  {items.map((it, i) => {
+                    const filteredProducts = getFilteredProducts(productSearches[i] ?? "");
 
-                        <input
-                          placeholder="Descripción"
-                          value={it.description}
-                          onChange={(e) =>
-                            setItems((prev) =>
-                              prev.map((x, idx) =>
-                                idx === i ? { ...x, description: e.target.value } : x
-                              )
-                            )
-                          }
-                          style={inputStyle}
-                        />
+                    return (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, y: 18 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10, transition: { duration: 0.18 } }}
+                        transition={{ duration: 0.3, delay: i * 0.04 }}
+                        whileHover={{ y: -3, scale: 1.005 }}
+                        style={{
+                          borderRadius: 18,
+                          padding: 16,
+                          background: COLORS.bone,
+                          border: "1px solid #D6D6D0",
+                          boxShadow: "0 8px 20px rgba(0,0,0,0.05)",
+                        }}
+                      >
+                        <div style={{ display: "grid", gap: 12 }}>
+                          <div
+                            style={{ position: "relative" }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="text"
+                              value={productSearches[i] ?? ""}
+                              placeholder="(Elegir producto)"
+                              onChange={(e) => {
+                                const value = e.target.value;
 
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr auto",
-                            gap: 12,
-                            alignItems: "center",
-                          }}
-                        >
+                                setProductSearches((prev) =>
+                                  prev.map((item, idx) => (idx === i ? value : item))
+                                );
+
+                                setItems((prev) =>
+                                  prev.map((x, idx) =>
+                                    idx === i
+                                      ? { ...x, product_id: null }
+                                      : x
+                                  )
+                                );
+
+                                setShowProductDropdowns((prev) =>
+                                  prev.map((item, idx) => (idx === i ? true : item))
+                                );
+                              }}
+                              onFocus={() =>
+                                setShowProductDropdowns((prev) =>
+                                  prev.map((item, idx) => (idx === i ? true : item))
+                                )
+                              }
+                              style={inputStyle}
+                            />
+
+                            <AnimatePresence>
+                              {showProductDropdowns[i] && (
+                                <motion.div
+                                  variants={dropdownVariants}
+                                  initial="hidden"
+                                  animate="visible"
+                                  exit="exit"
+                                  style={{
+                                    position: "absolute",
+                                    top: "calc(100% + 6px)",
+                                    left: 0,
+                                    right: 0,
+                                    background: COLORS.white,
+                                    border: `1px solid ${COLORS.grayBorder}`,
+                                    borderRadius: 14,
+                                    boxShadow: "0 12px 24px rgba(0,0,0,0.12)",
+                                    maxHeight: 260,
+                                    overflowY: "auto",
+                                    zIndex: 40,
+                                  }}
+                                >
+                                  {filteredProducts.length === 0 ? (
+                                    <div
+                                      style={{
+                                        padding: 12,
+                                        color: COLORS.text,
+                                        fontSize: 14,
+                                      }}
+                                    >
+                                      No se encontraron productos.
+                                    </div>
+                                  ) : (
+                                    filteredProducts.map((p, idx) => (
+                                      <motion.button
+                                        key={p.id}
+                                        type="button"
+                                        onClick={() => onPickProduct(i, p.id)}
+                                        whileHover={{ backgroundColor: "#F9FAFB" }}
+                                        style={{
+                                          width: "100%",
+                                          textAlign: "left",
+                                          border: "none",
+                                          background: COLORS.white,
+                                          color: COLORS.text,
+                                          padding: "12px 14px",
+                                          cursor: "pointer",
+                                          borderBottom:
+                                            idx !== filteredProducts.length - 1
+                                              ? `1px solid ${COLORS.grayBorder}`
+                                              : "none",
+                                        }}
+                                      >
+                                        <div style={{ fontWeight: 700 }}>{p.name}</div>
+                                        <div style={{ fontSize: 13, opacity: 0.8 }}>
+                                          ${Number(p.price).toFixed(2)}
+                                        </div>
+                                      </motion.button>
+                                    ))
+                                  )}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+
                           <input
-                            type="number"
-                            step="0.01"
-                            value={it.qty}
+                            placeholder="Descripción"
+                            value={it.description}
                             onChange={(e) =>
                               setItems((prev) =>
                                 prev.map((x, idx) =>
-                                  idx === i ? { ...x, qty: Number(e.target.value) } : x
+                                  idx === i ? { ...x, description: e.target.value } : x
                                 )
                               )
                             }
                             style={inputStyle}
-                            placeholder="Cantidad"
                           />
 
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={it.unit_price}
-                            onChange={(e) =>
-                              setItems((prev) =>
-                                prev.map((x, idx) =>
-                                  idx === i
-                                    ? { ...x, unit_price: Number(e.target.value) }
-                                    : x
-                                )
-                              )
-                            }
-                            style={inputStyle}
-                            placeholder="Precio unitario"
-                          />
-
-                          <label
+                          <div
                             style={{
-                              display: "flex",
-                              gap: 8,
+                              display: "grid",
+                              gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr auto",
+                              gap: 12,
                               alignItems: "center",
-                              color: COLORS.text,
-                              minHeight: 48,
                             }}
                           >
                             <input
-                              type="checkbox"
-                              checked={it.taxable}
+                              type="number"
+                              step="0.01"
+                              value={it.qty}
                               onChange={(e) =>
                                 setItems((prev) =>
                                   prev.map((x, idx) =>
-                                    idx === i ? { ...x, taxable: e.target.checked } : x
+                                    idx === i ? { ...x, qty: Number(e.target.value) } : x
                                   )
                                 )
                               }
+                              style={inputStyle}
+                              placeholder="Cantidad"
                             />
-                            Aplica IVA
-                          </label>
 
-                          {items.length > 1 && (
-                            <motion.button
-                              type="button"
-                              onClick={() => removeRow(i)}
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={it.unit_price}
+                              onChange={(e) =>
+                                setItems((prev) =>
+                                  prev.map((x, idx) =>
+                                    idx === i
+                                      ? { ...x, unit_price: Number(e.target.value) }
+                                      : x
+                                  )
+                                )
+                              }
+                              style={inputStyle}
+                              placeholder="Precio unitario"
+                            />
+
+                            <label
                               style={{
-                                ...dangerButtonStyle,
-                                width: isMobile ? "100%" : undefined,
+                                display: "flex",
+                                gap: 8,
+                                alignItems: "center",
+                                color: COLORS.text,
+                                minHeight: 48,
                               }}
-                              whileHover={{ scale: 1.03 }}
-                              whileTap={{ scale: 0.97 }}
                             >
-                              Eliminar
-                            </motion.button>
-                          )}
-                        </div>
+                              <input
+                                type="checkbox"
+                                checked={it.taxable}
+                                onChange={(e) =>
+                                  setItems((prev) =>
+                                    prev.map((x, idx) =>
+                                      idx === i ? { ...x, taxable: e.target.checked } : x
+                                    )
+                                  )
+                                }
+                              />
+                              Aplica IVA
+                            </label>
 
-                        <div style={{ color: COLORS.text, fontWeight: 700 }}>
-                          Total del ítem: ${(it.qty * it.unit_price).toFixed(2)}
+                            {items.length > 1 && (
+                              <motion.button
+                                type="button"
+                                onClick={() => removeRow(i)}
+                                style={{
+                                  ...dangerButtonStyle,
+                                  width: isMobile ? "100%" : undefined,
+                                }}
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                              >
+                                Eliminar
+                              </motion.button>
+                            )}
+                          </div>
+
+                          <div style={{ color: COLORS.text, fontWeight: 700 }}>
+                            Total del ítem: ${(it.qty * it.unit_price).toFixed(2)}
+                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    );
+                  })}
                 </AnimatePresence>
 
                 <div>
@@ -934,29 +1068,29 @@ export default function NewProformaPage() {
             </motion.div>
 
             <motion.div variants={itemVariants} style={panelStyle}>
-  <div
-    style={{
-      display: "flex",
-      justifyContent: "center",
-      gap: 12,
-      flexDirection: isMobile ? "column" : "row",
-    }}
-  >
-    <motion.button
-      type="button"
-      onClick={save}
-      style={{
-        ...primaryInlineButtonStyle,
-        width: isMobile ? "100%" : undefined,
-      }}
-      disabled={saving}
-      whileHover={{ scale: 1.03 }}
-      whileTap={{ scale: 0.97 }}
-    >
-      {saving ? "Guardando..." : "Guardar proforma"}
-    </motion.button>
-  </div>
-</motion.div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  gap: 12,
+                  flexDirection: isMobile ? "column" : "row",
+                }}
+              >
+                <motion.button
+                  type="button"
+                  onClick={save}
+                  style={{
+                    ...primaryInlineButtonStyle,
+                    width: isMobile ? "100%" : undefined,
+                  }}
+                  disabled={saving}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  {saving ? "Guardando..." : "Guardar proforma"}
+                </motion.button>
+              </div>
+            </motion.div>
           </div>
         </div>
       </motion.div>
