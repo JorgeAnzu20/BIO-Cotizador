@@ -14,7 +14,7 @@ type Row = {
   created_at: string;
   venta_confirmada: boolean;
   seller_id: string | null;
-  clients: { full_name: string } | null;
+  clients: { id: number; full_name: string } | null;
 };
 
 function money(n: number | null | undefined) {
