@@ -384,10 +384,10 @@ async function exportToExcel() {
   "Tipo Documento": "PROFORMA",
   "# Documento": p.number,
 
-  Cliente: p.clients?.full_name || "",
-  Identificación: p.clients?.identification || "",
-  CORREO: p.clients?.email || "",
-  TELEFONO: p.clients?.phone || "",
+  Cliente: p.clients?.[0]?.full_name || "",
+Identificación: p.clients?.[0]?.identification || "",
+CORREO: p.clients?.[0]?.email || "",
+TELEFONO: p.clients?.[0]?.phone || "",
 
   VENDEDOR: seller?.full_name || "",
 
