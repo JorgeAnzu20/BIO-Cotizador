@@ -434,8 +434,7 @@ async function exportToExcel() {
         Total: total,
         Saldo: total
       };
-    };
-
+    });
     const ws = XLSX.utils.json_to_sheet(rowsExcel);
     const wb = XLSX.utils.book_new();
 
