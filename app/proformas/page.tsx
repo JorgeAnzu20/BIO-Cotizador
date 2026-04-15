@@ -159,7 +159,10 @@ export default function ProformasPage() {
 
       const { data: r, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+  console.error("ERROR SUPABASE:", error);
+  throw error;
+}
 
       const normalizedRows: Row[] = (r ?? []).map((row: any) => ({
         ...row,
@@ -333,34 +336,30 @@ async function exportToExcel() {
     const ids = filtered.map((p) => p.id);
 
     const { data: proformas, error } = await supabase
-      .from("proformas")
-      .select(`
-        id,
-        number,
-        total,
-        created_at,
+  .from("proformas")
+  .select(`
+    id,
+    number,
+    total,
+    created_at,
 
-        clients (
-          full_name,
-          identification,
-          email,
-          phone
-        ),
+    clients (
+      full_name,
+      identification,
+      email,
+      phone
+    ),
 
-        profiles (
-          full_name
-        ),
-
-        proforma_items (
-          id,
-          quantity,
-          price,
-          products (
-            name
-          )
-        )
-      `)
-      .in("id", ids);
+    proforma_items (
+      id,
+      quantity,
+      price,
+      products (
+        name
+      )
+    )
+  `)
+  .in("id", ids);
 
     if (error) throw error;
 
@@ -389,7 +388,7 @@ async function exportToExcel() {
         CORREO: p.clients?.email || "",
         TELEFONO: p.clients?.phone || "",
 
-        VENDEDOR: p.profiles?.full_name || "",
+        VENDEDOR: "",
 
         "PRODUCTO 1": productos[0],
         "PRODUCTO 2": productos[1],
