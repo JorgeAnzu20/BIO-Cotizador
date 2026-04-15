@@ -332,7 +332,6 @@ async function exportToExcel() {
 
     const ids = filtered.map((p) => p.id);
 
-    // 🔥 TRAEMOS TODO RELACIONADO EN UNA SOLA QUERY
     const { data: proformas } = await supabase
       .from("proformas")
       .select(`
@@ -340,7 +339,6 @@ async function exportToExcel() {
         number,
         total,
         created_at,
-        seller_id,
 
         clients (
           full_name,
@@ -379,11 +377,78 @@ async function exportToExcel() {
         precios[i] = item.price ?? "";
       });
 
-      // 🔥 IVA 15%
       const total = Number(p.total || 0);
       const subtotal = total / 1.15;
       const iva = total - subtotal;
 
+      return {
+        Fecha: new Date(p.created_at).toLocaleDateString("es-EC"),
+        "Tipo Documento": "PROFORMA",
+        "# Documento": p.number,
+
+        Persona: p.clients?.full_name || "",
+        Identificación: p.clients?.identification || "",
+        CORREO: p.clients?.email || "",
+        TELEFONO: p.clients?.phone || "",
+
+        VENDEDOR: p.profiles?.full_name || "",
+
+        "PRODUCTO 1": productos[0],
+        "CANTIDAD 1": cantidades[0],
+        "PRECIO 1": precios[0],
+
+        "PRODUCTO 2": productos[1],
+        "CANTIDAD 2": cantidades[1],
+        "PRECIO 2": precios[1],
+
+        "PRODUCTO 3": productos[2],
+        "CANTIDAD 3": cantidades[2],
+        "PRECIO 3": precios[2],
+
+        "PRODUCTO 4": productos[3],
+        "CANTIDAD 4": cantidades[3],
+        "PRECIO 4": precios[3],
+
+        "PRODUCTO 5": productos[4],
+        "CANTIDAD 5": cantidades[4],
+        "PRECIO 5": precios[4],
+
+        "PRODUCTO 6": productos[5],
+        "CANTIDAD 6": cantidades[5],
+        "PRECIO 6": precios[5],
+
+        "PRODUCTO 7": productos[6],
+        "CANTIDAD 7": cantidades[6],
+        "PRECIO 7": precios[6],
+
+        "PRODUCTO 8": productos[7],
+        "CANTIDAD 8": cantidades[7],
+        "PRECIO 8": precios[7],
+
+        "PRODUCTO 9": productos[8],
+        "CANTIDAD 9": cantidades[8],
+        "PRECIO 9": precios[8],
+
+        "Subtotal IVA 0%": Number(subtotal.toFixed(2)),
+        IVA: Number(iva.toFixed(2)),
+        Total: total,
+        Saldo: total
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rowsExcel);
+    const wb = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+
+    XLSX.writeFile(wb, "reporte_proformas.xlsx");
+
+    setMsg("✅ Excel generado correctamente");
+  } catch (err) {
+    console.error(err);
+    setMsg("Error generando Excel");
+  }
+}
       return {
         Fecha: new Date(p.created_at).toLocaleDateString("es-EC"),
         "Tipo Documento": "PROFORMA",
