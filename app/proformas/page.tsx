@@ -333,7 +333,49 @@ async function exportToExcel() {
       return;
     }
 
-    const rowsExcel = filtered.map((p) => {
+    const ids = filtered.map((p) => p.id);
+
+    // 🔥 Traer datos completos SOLO de esas proformas
+    const { data, error } = await supabase
+      .from("proformas")
+      .select(`
+        id,
+        total,
+        created_at,
+        number,
+        seller_id,
+
+        clients (
+          full_name,
+          identification,
+          email,
+          phone
+        )
+      `)
+      .in("id", ids);
+
+    if (error) {
+      console.error(error);
+      throw error;
+    }
+
+    // 🔥 Obtener vendedores aparte (sin relaciones rotas)
+    const sellerIds = [...new Set(data.map((p: any) => p.seller_id).filter(Boolean))];
+
+    let sellersMap: any = {};
+
+    if (sellerIds.length > 0) {
+      const { data: sellers } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", sellerIds);
+
+      sellersMap = Object.fromEntries(
+        (sellers || []).map((s: any) => [s.id, s.full_name])
+      );
+    }
+
+    const rowsExcel = data.map((p: any) => {
       const total = Number(p.total || 0);
       const subtotal = total / 1.15;
       const iva = total - subtotal;
@@ -344,11 +386,11 @@ async function exportToExcel() {
         "# Documento": p.number,
 
         Cliente: p.clients?.full_name || "",
-        Identificación: "",
-        CORREO: "",
-        TELEFONO: "",
+        Identificación: p.clients?.identification || "",
+        CORREO: p.clients?.email || "",
+        TELEFONO: p.clients?.phone || "",
 
-        VENDEDOR: "",
+        VENDEDOR: sellersMap[p.seller_id] || "",
 
         "PRODUCTO 1": "",
         "PRODUCTO 2": "",
