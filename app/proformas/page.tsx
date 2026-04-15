@@ -329,9 +329,22 @@ async function exportToExcel() {
     setMsg("Generando Excel...");
 
     // 🔥 traer TODAS las proformas (no solo filtered)
-    const { data: proformas, error } = await supabase
-      .from("proformas")
-      .select("id, number, total, created_at, seller_id");
+    const { data: proformas } = await supabase
+  .from("proformas")
+  .select(`
+    id,
+    number,
+    total,
+    created_at,
+    seller_id,
+
+    clients (
+      full_name,
+      identification,
+      email,
+      phone
+    )
+  `);
 
     if (error) throw error;
 
@@ -342,7 +355,10 @@ async function exportToExcel() {
       const { data: client } = await supabase
         .from("clients")
         .select("full_name, identification, email, phone")
-        .eq("id", p.client_id)
+        Cliente: p.clients?.full_name || "",
+Identificación: p.clients?.identification || "",
+CORREO: p.clients?.email || "",
+TELEFONO: p.clients?.phone || "",
         .maybeSingle();
 
       // vendedor
