@@ -321,8 +321,7 @@ export default function ProformasPage() {
     setYearFrom("");
     setYearTo("");
   }
-
-     async function exportToExcel() {
+async function exportToExcel() {
   try {
     setMsg("Generando Excel...");
 
@@ -333,7 +332,7 @@ export default function ProformasPage() {
 
     const ids = filtered.map((p) => p.id);
 
-    const { data: proformas } = await supabase
+    const { data: proformas, error } = await supabase
       .from("proformas")
       .select(`
         id,
@@ -363,19 +362,17 @@ export default function ProformasPage() {
       `)
       .in("id", ids);
 
+    if (error) throw error;
+
     const rowsExcel = (proformas || []).map((p: any) => {
       const items = (p.proforma_items || []).sort(
         (a: any, b: any) => a.id - b.id
       );
 
       const productos = Array(9).fill("");
-      const cantidades = Array(9).fill("");
-      const precios = Array(9).fill("");
 
       items.slice(0, 9).forEach((item: any, i: number) => {
         productos[i] = item.products?.name || "";
-        cantidades[i] = item.quantity ?? "";
-        precios[i] = item.price ?? "";
       });
 
       const total = Number(p.total || 0);
@@ -387,7 +384,7 @@ export default function ProformasPage() {
         "Tipo Documento": "PROFORMA",
         "# Documento": p.number,
 
-        Persona: p.clients?.full_name || "",
+        Cliente: p.clients?.full_name || "",
         Identificación: p.clients?.identification || "",
         CORREO: p.clients?.email || "",
         TELEFONO: p.clients?.phone || "",
@@ -395,42 +392,16 @@ export default function ProformasPage() {
         VENDEDOR: p.profiles?.full_name || "",
 
         "PRODUCTO 1": productos[0],
-        "CANTIDAD 1": cantidades[0],
-        "PRECIO 1": precios[0],
-
         "PRODUCTO 2": productos[1],
-        "CANTIDAD 2": cantidades[1],
-        "PRECIO 2": precios[1],
-
         "PRODUCTO 3": productos[2],
-        "CANTIDAD 3": cantidades[2],
-        "PRECIO 3": precios[2],
-
         "PRODUCTO 4": productos[3],
-        "CANTIDAD 4": cantidades[3],
-        "PRECIO 4": precios[3],
-
         "PRODUCTO 5": productos[4],
-        "CANTIDAD 5": cantidades[4],
-        "PRECIO 5": precios[4],
-
         "PRODUCTO 6": productos[5],
-        "CANTIDAD 6": cantidades[5],
-        "PRECIO 6": precios[5],
-
         "PRODUCTO 7": productos[6],
-        "CANTIDAD 7": cantidades[6],
-        "PRECIO 7": precios[6],
-
         "PRODUCTO 8": productos[7],
-        "CANTIDAD 8": cantidades[7],
-        "PRECIO 8": precios[7],
-
         "PRODUCTO 9": productos[8],
-        "CANTIDAD 9": cantidades[8],
-        "PRECIO 9": precios[8],
 
-        "Subtotal IVA 0%": Number(subtotal.toFixed(2)),
+        "Subtotal IVA": Number(subtotal.toFixed(2)),
         IVA: Number(iva.toFixed(2)),
         Total: total,
         Saldo: total
@@ -441,7 +412,6 @@ export default function ProformasPage() {
     const wb = XLSX.utils.book_new();
 
     XLSX.utils.book_append_sheet(wb, ws, "Reporte");
-
     XLSX.writeFile(wb, "reporte_proformas.xlsx");
 
     setMsg("✅ Excel generado correctamente");
@@ -450,6 +420,7 @@ export default function ProformasPage() {
     setMsg("Error generando Excel");
   }
 }
+     
   return (
     <motion.div
       variants={pageVariants}
