@@ -325,55 +325,133 @@ async function exportToExcel() {
   try {
     setMsg("Generando Excel...");
 
-    const ids = filtered.map((p) => p.id);
-
-    if (ids.length === 0) {
+    if (filtered.length === 0) {
       setMsg("No hay datos para exportar");
       return;
     }
 
-    // 🔹 ITEMS + PRODUCTOS
-   const { data: items } = await supabase
-  .from("proforma_items")
-  .select("proforma_id, products(name), id")
-  .in("proforma_id", ids)
-  .order("id", { ascending: true });
+    const ids = filtered.map((p) => p.id);
 
-    // 🔹 CLIENTES COMPLETOS
-    const { data: clients } = await supabase
-      .from("clients")
-      .select("id, full_name, identification, email, phone");
+    // 🔥 TRAEMOS TODO RELACIONADO EN UNA SOLA QUERY
+    const { data: proformas } = await supabase
+      .from("proformas")
+      .select(`
+        id,
+        number,
+        total,
+        created_at,
+        seller_id,
 
-    // 🔹 VENDEDORES
-    const { data: sellers } = await supabase
-      .from("profiles")
-      .select("id, full_name");
+        clients (
+          full_name,
+          identification,
+          email,
+          phone
+        ),
 
-    const rowsExcel = filtered.map((p) => {
-      // productos
-      const proformaItems = (items || [])
-  .filter((i: any) => i.proforma_id === p.id)
-  .sort((a: any, b: any) => a.id - b.id) // 🔥 orden correcto
-  .map((i: any) => i.products?.name || "");
+        profiles (
+          full_name
+        ),
+
+        proforma_items (
+          id,
+          quantity,
+          price,
+          products (
+            name
+          )
+        )
+      `)
+      .in("id", ids);
+
+    const rowsExcel = (proformas || []).map((p: any) => {
+      const items = (p.proforma_items || []).sort(
+        (a: any, b: any) => a.id - b.id
+      );
 
       const productos = Array(9).fill("");
-      proformaItems.slice(0, 9).forEach((prod, i) => {
-        productos[i] = prod;
+      const cantidades = Array(9).fill("");
+      const precios = Array(9).fill("");
+
+      items.slice(0, 9).forEach((item: any, i: number) => {
+        productos[i] = item.products?.name || "";
+        cantidades[i] = item.quantity ?? "";
+        precios[i] = item.price ?? "";
       });
 
-      // cliente (IMPORTANTE)
-      const client = clients?.find(
-        (c: any) => c.full_name === p.clients?.full_name
-      );
-
-      const seller = sellers?.find(
-        (s: any) => s.id === p.seller_id
-      );
-
-      // 🔥 CALCULOS IVA 15%
+      // 🔥 IVA 15%
       const total = Number(p.total || 0);
       const subtotal = total / 1.15;
       const iva = total - subtotal;
+
+      return {
+        Fecha: new Date(p.created_at).toLocaleDateString("es-EC"),
+        "Tipo Documento": "PROFORMA",
+        "# Documento": p.number,
+
+        Persona: p.clients?.full_name || "",
+        Identificación: p.clients?.identification || "",
+        CORREO: p.clients?.email || "",
+        TELEFONO: p.clients?.phone || "",
+
+        VENDEDOR: p.profiles?.full_name || "",
+
+        "PRODUCTO 1": productos[0],
+        "CANTIDAD 1": cantidades[0],
+        "PRECIO 1": precios[0],
+
+        "PRODUCTO 2": productos[1],
+        "CANTIDAD 2": cantidades[1],
+        "PRECIO 2": precios[1],
+
+        "PRODUCTO 3": productos[2],
+        "CANTIDAD 3": cantidades[2],
+        "PRECIO 3": precios[2],
+
+        "PRODUCTO 4": productos[3],
+        "CANTIDAD 4": cantidades[3],
+        "PRECIO 4": precios[3],
+
+        "PRODUCTO 5": productos[4],
+        "CANTIDAD 5": cantidades[4],
+        "PRECIO 5": precios[4],
+
+        "PRODUCTO 6": productos[5],
+        "CANTIDAD 6": cantidades[5],
+        "PRECIO 6": precios[5],
+
+        "PRODUCTO 7": productos[6],
+        "CANTIDAD 7": cantidades[6],
+        "PRECIO 7": precios[6],
+
+        "PRODUCTO 8": productos[7],
+        "CANTIDAD 8": cantidades[7],
+        "PRECIO 8": precios[7],
+
+        "PRODUCTO 9": productos[8],
+        "CANTIDAD 9": cantidades[8],
+        "PRECIO 9": precios[8],
+
+        "Subtotal IVA 0%": Number(subtotal.toFixed(2)),
+        IVA: Number(iva.toFixed(2)),
+        Total: total,
+        Saldo: total,
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rowsExcel);
+    const wb = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+
+    XLSX.writeFile(wb, "reporte_proformas.xlsx");
+
+    setMsg("✅ Excel generado correctamente");
+  } catch (err) {
+    console.error(err);
+    setMsg("Error generando Excel");
+  }
+}
 
       return {
         Fecha: new Date(p.created_at).toLocaleDateString("es-EC"),
