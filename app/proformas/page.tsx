@@ -328,27 +328,41 @@ async function exportToExcel() {
   try {
     setMsg("Generando Excel...");
 
-    if (filtered.length === 0) {
-      setMsg("No hay datos para exportar");
-      return;
-    }
+    // 🔥 traer TODAS las proformas (no solo filtered)
+    const { data: proformas, error } = await supabase
+      .from("proformas")
+      .select("id, number, total, created_at, seller_id");
+
+    if (error) throw error;
 
     const rowsExcel = [];
 
-    for (const p of filtered) {
-      // 🔥 Traer cliente completo (consulta segura)
+    for (const p of proformas || []) {
+      // cliente
       const { data: client } = await supabase
         .from("clients")
         .select("full_name, identification, email, phone")
-        .eq("id", p.clients?.id || 0)
+        .eq("id", p.client_id)
         .maybeSingle();
 
-      // 🔥 Traer vendedor (consulta segura)
+      // vendedor
       const { data: seller } = await supabase
         .from("profiles")
         .select("full_name")
-        .eq("id", p.seller_id || "")
+        .eq("id", p.seller_id)
         .maybeSingle();
+
+      // items
+      const { data: items } = await supabase
+        .from("proforma_items")
+        .select("quantity, price, products(name)")
+        .eq("proforma_id", p.id);
+
+      const productos = Array(9).fill("");
+
+      items?.slice(0, 9).forEach((item: any, i: number) => {
+        productos[i] = item.products?.name || "";
+      });
 
       const total = Number(p.total || 0);
       const subtotal = total / 1.15;
@@ -359,22 +373,22 @@ async function exportToExcel() {
         "Tipo Documento": "PROFORMA",
         "# Documento": p.number,
 
-        Cliente: client?.full_name || p.clients?.full_name || "",
+        Cliente: client?.full_name || "",
         Identificación: client?.identification || "",
         CORREO: client?.email || "",
         TELEFONO: client?.phone || "",
 
         VENDEDOR: seller?.full_name || "",
 
-        "PRODUCTO 1": "",
-        "PRODUCTO 2": "",
-        "PRODUCTO 3": "",
-        "PRODUCTO 4": "",
-        "PRODUCTO 5": "",
-        "PRODUCTO 6": "",
-        "PRODUCTO 7": "",
-        "PRODUCTO 8": "",
-        "PRODUCTO 9": "",
+        "PRODUCTO 1": productos[0],
+        "PRODUCTO 2": productos[1],
+        "PRODUCTO 3": productos[2],
+        "PRODUCTO 4": productos[3],
+        "PRODUCTO 5": productos[4],
+        "PRODUCTO 6": productos[5],
+        "PRODUCTO 7": productos[6],
+        "PRODUCTO 8": productos[7],
+        "PRODUCTO 9": productos[8],
 
         "Subtotal IVA": Number(subtotal.toFixed(2)),
         IVA: Number(iva.toFixed(2)),
@@ -391,7 +405,7 @@ async function exportToExcel() {
 
     setMsg("✅ Excel generado correctamente");
   } catch (err) {
-    console.error("ERROR REAL:", err);
+    console.error(err);
     setMsg("Error generando Excel");
   }
 }
