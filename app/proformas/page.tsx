@@ -333,47 +333,7 @@ async function exportToExcel() {
       return;
     }
 
-    const ids = filtered.map((p) => p.id);
-
-    const { data: proformas, error } = await supabase
-  .from("proformas")
-  .select(`
-    id,
-    number,
-    total,
-    created_at,
-
-    clients (
-      full_name,
-      identification,
-      email,
-      phone
-    ),
-
-    proforma_items (
-      id,
-      quantity,
-      price,
-      products (
-        name
-      )
-    )
-  `)
-  .in("id", ids);
-
-    if (error) throw error;
-
-    const rowsExcel = (proformas || []).map((p: any) => {
-      const items = (p.proforma_items || []).sort(
-        (a: any, b: any) => a.id - b.id
-      );
-
-      const productos = Array(9).fill("");
-
-      items.slice(0, 9).forEach((item: any, i: number) => {
-        productos[i] = item.products?.name || "";
-      });
-
+    const rowsExcel = filtered.map((p) => {
       const total = Number(p.total || 0);
       const subtotal = total / 1.15;
       const iva = total - subtotal;
@@ -384,21 +344,21 @@ async function exportToExcel() {
         "# Documento": p.number,
 
         Cliente: p.clients?.full_name || "",
-        Identificación: p.clients?.identification || "",
-        CORREO: p.clients?.email || "",
-        TELEFONO: p.clients?.phone || "",
+        Identificación: "",
+        CORREO: "",
+        TELEFONO: "",
 
         VENDEDOR: "",
 
-        "PRODUCTO 1": productos[0],
-        "PRODUCTO 2": productos[1],
-        "PRODUCTO 3": productos[2],
-        "PRODUCTO 4": productos[3],
-        "PRODUCTO 5": productos[4],
-        "PRODUCTO 6": productos[5],
-        "PRODUCTO 7": productos[6],
-        "PRODUCTO 8": productos[7],
-        "PRODUCTO 9": productos[8],
+        "PRODUCTO 1": "",
+        "PRODUCTO 2": "",
+        "PRODUCTO 3": "",
+        "PRODUCTO 4": "",
+        "PRODUCTO 5": "",
+        "PRODUCTO 6": "",
+        "PRODUCTO 7": "",
+        "PRODUCTO 8": "",
+        "PRODUCTO 9": "",
 
         "Subtotal IVA": Number(subtotal.toFixed(2)),
         IVA: Number(iva.toFixed(2)),
