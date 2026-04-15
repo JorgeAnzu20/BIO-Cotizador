@@ -1,5 +1,6 @@
 "use client";
 
+import * as XLSX from "xlsx";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
@@ -320,7 +321,87 @@ export default function ProformasPage() {
     setYearFrom("");
     setYearTo("");
   }
+async function exportToExcel() {
+  try {
+    setMsg("Generando Excel...");
 
+    const ids = filtered.map((p) => p.id);
+
+    if (ids.length === 0) {
+      setMsg("No hay datos para exportar");
+      return;
+    }
+
+    const { data: items } = await supabase
+      .from("proforma_items")
+      .select("proforma_id, products(name)")
+      .in("proforma_id", ids);
+
+    const { data: clients } = await supabase
+      .from("clients")
+      .select("id, full_name, identification, email, phone");
+
+    const { data: sellers } = await supabase
+      .from("profiles")
+      .select("id, full_name");
+
+    const rowsExcel = filtered.map((p) => {
+      const proformaItems = (items || [])
+        .filter((i: any) => i.proforma_id === p.id)
+        .map((i: any) => i.products?.name || "");
+
+      const client = clients?.find(
+        (c: any) => c.full_name === p.clients?.full_name
+      );
+
+      const seller = sellers?.find(
+        (s: any) => s.id === p.seller_id
+      );
+
+      const productos = Array(9).fill("");
+
+      proformaItems.slice(0, 9).forEach((prod, i) => {
+        productos[i] = prod;
+      });
+
+      return {
+        Fecha: new Date(p.created_at).toLocaleDateString("es-EC"),
+        "Tipo Documento": "PROFORMA",
+        "# Documento": p.number,
+        Persona: client?.full_name || "",
+        Identificación: client?.identification || "",
+        CORREO: client?.email || "",
+        TELEFONO: client?.phone || "",
+        VENDEDOR: seller?.full_name || "",
+
+        "PRODUCTO 1": productos[0],
+        "PRODUCTO 2": productos[1],
+        "PRODUCTO 3": productos[2],
+        "PRODUCTO 4": productos[3],
+        "PRODUCTO 5": productos[4],
+        "PRODUCTO 6": productos[5],
+        "PRODUCTO 7": productos[6],
+        "PRODUCTO 8": productos[7],
+        "PRODUCTO 9": productos[8],
+
+        "Subtotal IVA 0%": p.total,
+        IVA: 0,
+        Total: p.total,
+        Saldo: p.total,
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rowsExcel);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+
+    XLSX.writeFile(wb, "reporte_proformas.xlsx");
+
+    setMsg("✅ Excel generado correctamente");
+  } catch (err) {
+    setMsg("Error generando Excel");
+  }
+}
   return (
     <motion.div
       variants={pageVariants}
@@ -404,6 +485,14 @@ export default function ProformasPage() {
               >
                 Recargar
               </motion.button>
+              <motion.button
+  whileHover={{ scale: 1.03 }}
+  whileTap={{ scale: 0.97 }}
+  onClick={exportToExcel}
+  style={navButtonStyle}
+>
+  Descargar Excel
+</motion.button>
             </div>
           </motion.div>
 
