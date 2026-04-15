@@ -333,64 +333,38 @@ async function exportToExcel() {
       return;
     }
 
-    const ids = filtered.map((p) => p.id);
+    const rowsExcel = [];
 
-    // 🔥 Traer datos completos SOLO de esas proformas
-    const { data, error } = await supabase
-      .from("proformas")
-      .select(`
-        id,
-        total,
-        created_at,
-        number,
-        seller_id,
+    for (const p of filtered) {
+      // 🔥 Traer cliente completo (consulta segura)
+      const { data: client } = await supabase
+        .from("clients")
+        .select("full_name, identification, email, phone")
+        .eq("id", p.clients?.id || 0)
+        .maybeSingle();
 
-        clients (
-          full_name,
-          identification,
-          email,
-          phone
-        )
-      `)
-      .in("id", ids);
-
-    if (error) {
-      console.error(error);
-      throw error;
-    }
-
-    // 🔥 Obtener vendedores aparte (sin relaciones rotas)
-    const sellerIds = [...new Set(data.map((p: any) => p.seller_id).filter(Boolean))];
-
-    let sellersMap: any = {};
-
-    if (sellerIds.length > 0) {
-      const { data: sellers } = await supabase
+      // 🔥 Traer vendedor (consulta segura)
+      const { data: seller } = await supabase
         .from("profiles")
-        .select("id, full_name")
-        .in("id", sellerIds);
+        .select("full_name")
+        .eq("id", p.seller_id || "")
+        .maybeSingle();
 
-      sellersMap = Object.fromEntries(
-        (sellers || []).map((s: any) => [s.id, s.full_name])
-      );
-    }
-
-    const rowsExcel = data.map((p: any) => {
       const total = Number(p.total || 0);
       const subtotal = total / 1.15;
       const iva = total - subtotal;
 
-      return {
+      rowsExcel.push({
         Fecha: new Date(p.created_at).toLocaleDateString("es-EC"),
         "Tipo Documento": "PROFORMA",
         "# Documento": p.number,
 
-        Cliente: p.clients?.full_name || "",
-        Identificación: p.clients?.identification || "",
-        CORREO: p.clients?.email || "",
-        TELEFONO: p.clients?.phone || "",
+        Cliente: client?.full_name || p.clients?.full_name || "",
+        Identificación: client?.identification || "",
+        CORREO: client?.email || "",
+        TELEFONO: client?.phone || "",
 
-        VENDEDOR: sellersMap[p.seller_id] || "",
+        VENDEDOR: seller?.full_name || "",
 
         "PRODUCTO 1": "",
         "PRODUCTO 2": "",
@@ -406,8 +380,8 @@ async function exportToExcel() {
         IVA: Number(iva.toFixed(2)),
         Total: total,
         Saldo: total
-      };
-    });
+      });
+    }
 
     const ws = XLSX.utils.json_to_sheet(rowsExcel);
     const wb = XLSX.utils.book_new();
@@ -417,7 +391,7 @@ async function exportToExcel() {
 
     setMsg("✅ Excel generado correctamente");
   } catch (err) {
-    console.error(err);
+    console.error("ERROR REAL:", err);
     setMsg("Error generando Excel");
   }
 }
