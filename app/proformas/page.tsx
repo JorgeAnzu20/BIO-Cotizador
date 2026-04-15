@@ -332,24 +332,34 @@ async function exportToExcel() {
       return;
     }
 
+    // 🔹 ITEMS + PRODUCTOS
     const { data: items } = await supabase
       .from("proforma_items")
       .select("proforma_id, products(name)")
       .in("proforma_id", ids);
 
+    // 🔹 CLIENTES COMPLETOS
     const { data: clients } = await supabase
       .from("clients")
       .select("id, full_name, identification, email, phone");
 
+    // 🔹 VENDEDORES
     const { data: sellers } = await supabase
       .from("profiles")
       .select("id, full_name");
 
     const rowsExcel = filtered.map((p) => {
+      // productos
       const proformaItems = (items || [])
         .filter((i: any) => i.proforma_id === p.id)
         .map((i: any) => i.products?.name || "");
 
+      const productos = Array(9).fill("");
+      proformaItems.slice(0, 9).forEach((prod, i) => {
+        productos[i] = prod;
+      });
+
+      // cliente (IMPORTANTE)
       const client = clients?.find(
         (c: any) => c.full_name === p.clients?.full_name
       );
@@ -358,20 +368,21 @@ async function exportToExcel() {
         (s: any) => s.id === p.seller_id
       );
 
-      const productos = Array(9).fill("");
-
-      proformaItems.slice(0, 9).forEach((prod, i) => {
-        productos[i] = prod;
-      });
+      // 🔥 CALCULOS IVA 15%
+      const total = Number(p.total || 0);
+      const subtotal = total / 1.15;
+      const iva = total - subtotal;
 
       return {
         Fecha: new Date(p.created_at).toLocaleDateString("es-EC"),
         "Tipo Documento": "PROFORMA",
         "# Documento": p.number,
+
         Persona: client?.full_name || "",
         Identificación: client?.identification || "",
         CORREO: client?.email || "",
         TELEFONO: client?.phone || "",
+
         VENDEDOR: seller?.full_name || "",
 
         "PRODUCTO 1": productos[0],
@@ -384,15 +395,16 @@ async function exportToExcel() {
         "PRODUCTO 8": productos[7],
         "PRODUCTO 9": productos[8],
 
-        "Subtotal IVA 0%": p.total,
-        IVA: 0,
-        Total: p.total,
-        Saldo: p.total,
+        "Subtotal IVA 0%": Number(subtotal.toFixed(2)),
+        IVA: Number(iva.toFixed(2)),
+        Total: total,
+        Saldo: total,
       };
     });
 
     const ws = XLSX.utils.json_to_sheet(rowsExcel);
     const wb = XLSX.utils.book_new();
+
     XLSX.utils.book_append_sheet(wb, ws, "Reporte");
 
     XLSX.writeFile(wb, "reporte_proformas.xlsx");
