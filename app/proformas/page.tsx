@@ -149,7 +149,7 @@ export default function ProformasPage() {
       let query = supabase
         .from("proformas")
         .select(
-          "id, number, total, created_at, venta_confirmada, seller_id, clients(full_name)"
+          "id, number, total, created_at, venta_confirmada, seller_id, clients(id,full_name)"
         )
         .order("id", { ascending: false });
 
