@@ -333,10 +333,11 @@ async function exportToExcel() {
     }
 
     // 🔹 ITEMS + PRODUCTOS
-    const { data: items } = await supabase
-      .from("proforma_items")
-      .select("proforma_id, products(name)")
-      .in("proforma_id", ids);
+   const { data: items } = await supabase
+  .from("proforma_items")
+  .select("proforma_id, products(name), id")
+  .in("proforma_id", ids)
+  .order("id", { ascending: true });
 
     // 🔹 CLIENTES COMPLETOS
     const { data: clients } = await supabase
@@ -351,8 +352,9 @@ async function exportToExcel() {
     const rowsExcel = filtered.map((p) => {
       // productos
       const proformaItems = (items || [])
-        .filter((i: any) => i.proforma_id === p.id)
-        .map((i: any) => i.products?.name || "");
+  .filter((i: any) => i.proforma_id === p.id)
+  .sort((a: any, b: any) => a.id - b.id) // 🔥 orden correcto
+  .map((i: any) => i.products?.name || "");
 
       const productos = Array(9).fill("");
       proformaItems.slice(0, 9).forEach((prod, i) => {
