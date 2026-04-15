@@ -337,7 +337,6 @@ async function exportToExcel() {
     total,
     created_at,
     seller_id,
-
     clients (
       full_name,
       identification,
@@ -385,32 +384,32 @@ TELEFONO: p.clients?.phone || "",
       const iva = total - subtotal;
 
       rowsExcel.push({
-        Fecha: new Date(p.created_at).toLocaleDateString("es-EC"),
-        "Tipo Documento": "PROFORMA",
-        "# Documento": p.number,
+  Fecha: new Date(p.created_at).toLocaleDateString("es-EC"),
+  "Tipo Documento": "PROFORMA",
+  "# Documento": p.number,
 
-        Cliente: client?.full_name || "",
-        Identificación: client?.identification || "",
-        CORREO: client?.email || "",
-        TELEFONO: client?.phone || "",
+  Cliente: p.clients?.full_name || "",
+  Identificación: p.clients?.identification || "",
+  CORREO: p.clients?.email || "",
+  TELEFONO: p.clients?.phone || "",
 
-        VENDEDOR: seller?.full_name || "",
+  VENDEDOR: seller?.full_name || "",
 
-        "PRODUCTO 1": productos[0],
-        "PRODUCTO 2": productos[1],
-        "PRODUCTO 3": productos[2],
-        "PRODUCTO 4": productos[3],
-        "PRODUCTO 5": productos[4],
-        "PRODUCTO 6": productos[5],
-        "PRODUCTO 7": productos[6],
-        "PRODUCTO 8": productos[7],
-        "PRODUCTO 9": productos[8],
+  "PRODUCTO 1": "",
+  "PRODUCTO 2": "",
+  "PRODUCTO 3": "",
+  "PRODUCTO 4": "",
+  "PRODUCTO 5": "",
+  "PRODUCTO 6": "",
+  "PRODUCTO 7": "",
+  "PRODUCTO 8": "",
+  "PRODUCTO 9": "",
 
-        "Subtotal IVA": Number(subtotal.toFixed(2)),
-        IVA: Number(iva.toFixed(2)),
-        Total: total,
-        Saldo: total
-      });
+  "Subtotal IVA": Number(subtotal.toFixed(2)),
+  IVA: Number(iva.toFixed(2)),
+  Total: total,
+  Saldo: total
+});
     }
 
     const ws = XLSX.utils.json_to_sheet(rowsExcel);
