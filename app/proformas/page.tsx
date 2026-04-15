@@ -354,10 +354,6 @@ async function exportToExcel() {
       const { data: client } = await supabase
         .from("clients")
         .select("full_name, identification, email, phone")
-        Cliente: p.clients?.full_name || "",
-Identificación: p.clients?.identification || "",
-CORREO: p.clients?.email || "",
-TELEFONO: p.clients?.phone || "",
         .maybeSingle();
 
       // vendedor
