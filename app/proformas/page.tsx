@@ -329,7 +329,7 @@ async function exportToExcel() {
     setMsg("Generando Excel...");
 
     // 🔥 traer TODAS las proformas (no solo filtered)
-    const { data: proformas } = await supabase
+    const { data: proformas, error } = await supabase
   .from("proformas")
   .select(`
     id,
